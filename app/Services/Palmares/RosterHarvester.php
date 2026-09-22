@@ -48,9 +48,10 @@ final class RosterHarvester
                 break;
             }
             $processed++;
+            $teamId = (int) $teamId;
 
             try {
-                $this->harvestTeam((int) $teamId, $candidates);
+                $this->harvestTeam($teamId, $candidates);
             } catch (Throwable $e) {
                 $this->errors[] = "Équipe {$teamId} : ".$e->getMessage();
                 Log::warning('RosterHarvester : équipe ignorée pour la prochaine passe', [
@@ -62,7 +63,8 @@ final class RosterHarvester
             }
 
             if ($progress !== null) {
-                $progress(['id' => $teamId]);
+                $team = $this->teams->findByEtf2lId($teamId);
+                $progress(['id' => $teamId, 'name' => $team?->name]);
             }
         }
 

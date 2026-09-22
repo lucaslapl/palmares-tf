@@ -47,6 +47,32 @@ final class RosterHarvesterTest extends TestCase
     }
 
     #[Test]
+    public function progress_callback_receives_team_name(): void
+    {
+        DB::table('teams')->insert([
+            ['etf2l_team_id' => 32593, 'name' => 'Witness Gaming', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        Http::fake([
+            '*/team/32593/transfers*' => Http::response(['data' => [], 'last_page' => 1]),
+            '*/team/32593*' => Http::response(['team' => ['id' => 32593, 'name' => 'Witness Gaming', 'players' => []]]),
+        ]);
+
+        $harvester = new RosterHarvester(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new TeamsRepository,
+            new PlayersRepository,
+        );
+
+        $seen = [];
+        $harvester->run(static function (array $team) use (&$seen): void {
+            $seen[] = $team['name'];
+        });
+
+        $this->assertSame(['Witness Gaming'], $seen);
+    }
+
+    #[Test]
     public function limit_restricts_the_number_of_teams_processed(): void
     {
         foreach ([32593 => 'Witness Gaming', 9999 => 'Autre équipe'] as $teamId => $name) {

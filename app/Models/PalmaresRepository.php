@@ -144,7 +144,17 @@ final class PalmaresRepository
         }
 
         return $query
-            ->groupBy('players.id')
+            // MySQL (sql_mode strict) exige toutes les colonnes non agrégées
+            // dans le GROUP BY, contrairement à SQLite : on liste explicitement
+            // chaque colonne de players pour être compatible avec les deux.
+            ->groupBy([
+                'players.id',
+                'players.etf2l_id',
+                'players.name',
+                'players.country',
+                'players.steam_id64',
+                'players.avatar',
+            ])
             ->get()
             ->all();
     }
