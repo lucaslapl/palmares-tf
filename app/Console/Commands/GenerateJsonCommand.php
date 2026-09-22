@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Palmares\LeaderboardBuilder;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 final class GenerateJsonCommand extends Command
 {
@@ -25,6 +26,7 @@ final class GenerateJsonCommand extends Command
             .' — 9v9 : '.$stats['leaderboard_9v9']
             .' — index joueurs : '.$stats['players_index'],
         );
+        Log::info('app:generate-json terminée', $stats);
 
         return self::SUCCESS;
     }

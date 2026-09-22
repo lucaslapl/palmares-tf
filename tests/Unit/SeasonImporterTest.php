@@ -50,4 +50,25 @@ final class SeasonImporterTest extends TestCase
         $this->assertSame('6v6 Season', $season->category);
         $this->assertSame('6s', $season->format);
     }
+
+    #[Test]
+    public function limit_stops_import_after_the_requested_count(): void
+    {
+        $fixture = $this->fixture('competition_list_page1');
+        $fixture['competitions']['last_page'] = 1;
+        $fixture['competitions']['next_page_url'] = null;
+        $fixture['competitions']['current_page'] = 1;
+
+        Http::fake(['*/competition/list*' => Http::response($fixture)]);
+
+        $importer = new SeasonImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+        );
+
+        $count = $importer->run(limit: 1);
+
+        $this->assertSame(1, $count);
+        $this->assertDatabaseCount('seasons', 1);
+    }
 }

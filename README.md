@@ -45,6 +45,35 @@ Les JSON publics (`storage/app/palmares/`) sont écrits de façon atomique sous 
 (`flock`), refroidis/se régénèrent eux-mêmes à la lecture s'ils sont absents. En production,
 MySQL et planification via `routes/console.php` (toutes les tâches en `withoutOverlapping`).
 
+### Scheduler et observabilité
+
+Le scheduler doit être déclenché explicitement, sinon les tâches planifiées `app:*`
+ne s'exécutent jamais :
+
+- **Local** : `docker compose up -d scheduler` (service qui tourne `php artisan schedule:work`).
+- **Production** : une ligne cron par minute, e.g.
+  `* * * * * cd /srv/palmares && php artisan schedule:run >> storage/logs/schedule-cron.log 2>&1`
+
+La sortie et les erreurs de chaque tâche planifiée sont appendées (`appendOutputTo`) dans
+`storage/logs/schedule.log`, et le moindre échec de tâche est aussi tracé dans
+`storage/logs/laravel.log` (events `ScheduledTaskFailed`).
+
+Pour un instantané à la demande de la progression du pipeline :
+
+```bash
+php artisan app:status
+```
+
+Il affiche volumes en base (saisons, équipes, joueurs, palmarès), travail restant,
+fraîcheur du cache API et des JSON publics, et les dernières lignes de
+`storage/logs/schedule.log`.
+
+**Premier remplissage (manuel)** : `php artisan app:sync-seasons` puis
+`app:sync-tables`, `app:harvest-players` (découpables avec `--limit=`), puis
+`./bin/backfill.sh` (boucle `app:compute-palmares --exit-on-empty --runtime=3600`
+qui s'arrête seule quand plus rien n'est en attente), enfin `app:generate-json`.
+Ou tout d'un coup : `php artisan app:sync-all`.
+
 ## Environnement local
 
 Docker est obligatoire — ne lancez jamais `composer test`, `php artisan`, `pint` ou `npm`
@@ -53,6 +82,9 @@ directement sur l'hôte.
 ```bash
 # Lancer l'app (http://localhost:8000)
 docker compose up -d app
+
+# Lancer le scheduler des tâches planifiées (app:sync-*, app:compute-palmares…)
+docker compose up -d scheduler
 
 # Logs du serveur
 docker compose logs -f app

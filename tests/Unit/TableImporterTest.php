@@ -107,6 +107,42 @@ final class TableImporterTest extends TestCase
         $this->assertCount(1, $importer->errors());
     }
 
+    #[Test]
+    public function limit_restricts_the_number_of_seasons_processed(): void
+    {
+        foreach ([971 => '6v6 Season 50 (Autumn 2025)', 999 => 'Saison suivante'] as $comp => $name) {
+            DB::table('seasons')->insert([
+                'etf2l_competition_id' => $comp,
+                'name' => $name,
+                'category' => '6v6 Season',
+                'format' => '6s',
+                'archived' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        Http::fake([
+            '*/competition/971/tables*' => Http::response($this->fixture('competition_971_tables')),
+            '*/competition/999/tables*' => Http::response($this->fixture('competition_971_tables')),
+        ]);
+
+        $importer = new TableImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+            new TeamsRepository,
+        );
+
+        $count = $importer->run(limit: 1);
+
+        // pendingTables() trie par compétition DESC : seule une saison est
+        // ingérée, l'autre reste en attente.
+        $this->assertGreaterThan(0, $count);
+        $ingested = (new SeasonsRepository)->listAll();
+        $this->assertCount(1, array_filter($ingested, static fn (object $s): bool => $s->ingested_at !== null));
+        $this->assertCount(1, array_filter($ingested, static fn (object $s): bool => $s->ingested_at === null));
+    }
+
     protected function tearDown(): void
     {
         config()->set('palmares.etf2l.max_attempts', 5);

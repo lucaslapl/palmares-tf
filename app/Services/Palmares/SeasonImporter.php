@@ -19,9 +19,10 @@ final class SeasonImporter
     ) {}
 
     /**
+     * @param  callable(array<string, mixed>): void|null  $progress
      * @return int nombre de saisons ingérées (nouvelles + déjà connues)
      */
-    public function run(?callable $progress = null): int
+    public function run(?callable $progress = null, int $limit = 0): int
     {
         $categories = (array) config('palmares.categories.seasons');
         $imported = 0;
@@ -44,6 +45,10 @@ final class SeasonImporter
 
                 if ($progress !== null) {
                     $progress($competition);
+                }
+
+                if ($limit > 0 && $imported >= $limit) {
+                    break 2;
                 }
             }
 

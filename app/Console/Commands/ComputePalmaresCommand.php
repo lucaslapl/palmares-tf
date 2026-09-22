@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Services\Palmares\ComputePalmaresService;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 
 final class ComputePalmaresCommand extends Command
 {
@@ -38,6 +39,13 @@ final class ComputePalmaresCommand extends Command
         );
 
         $this->info("Calculé : {$stats['computed']} — en échec : {$stats['failed']}");
+        Log::info('app:compute-palmares terminée', [
+            'computed' => $stats['computed'],
+            'failed' => $stats['failed'],
+            'skipped' => $stats['skipped'],
+            'limit' => $limit,
+            'runtime' => $runtime,
+        ]);
 
         if ($stats['failed'] > 0) {
             $this->error('Erreurs ('.count($stats['errors']).') :');

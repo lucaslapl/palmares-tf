@@ -11,6 +11,18 @@ services:
       - DB_DATABASE=/var/www/html/database/database.sqlite
     command: php artisan serve --host=0.0.0.0 --port=8000
 
+  # Déclencheur du scheduler (routes/console.php) : sans lui, les tâches
+  # planifiées app:* ne s'exécutent jamais. Depuis un autre terminal :
+  #   docker compose up -d scheduler
+  scheduler:
+    build: .
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+    command: php artisan schedule:work
+
   test:
     build: .
     volumes:

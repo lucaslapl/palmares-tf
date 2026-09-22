@@ -35,11 +35,16 @@ final class TableImporter
     ) {}
 
     /**
+     * @param  callable(object, int): void|null  $progress
      * @return int nombre de lignes de table insérées / mises à jour
      */
-    public function run(bool $force = false, ?callable $progress = null): int
+    public function run(bool $force = false, ?callable $progress = null, int $limit = 0): int
     {
         $pending = $force ? $this->seasons->listAll() : $this->seasons->pendingTables();
+        if ($limit > 0) {
+            $pending = array_slice($pending, 0, $limit);
+        }
+
         $medals = (array) config('palmares.medals');
         $ingested = 0;
         $this->errors = [];

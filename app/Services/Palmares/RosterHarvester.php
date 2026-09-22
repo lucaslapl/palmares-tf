@@ -34,14 +34,21 @@ final class RosterHarvester
     ) {}
 
     /**
+     * @param  callable(array<string, mixed>): void|null  $progress
      * @return int nombre de nouveaux joueurs découverts
      */
-    public function run(?callable $progress = null): int
+    public function run(?callable $progress = null, int $limit = 0): int
     {
         $candidates = [];
         $this->errors = [];
+        $processed = 0;
 
         foreach ($this->teams->allEtf2lIds() as $teamId) {
+            if ($limit > 0 && $processed >= $limit) {
+                break;
+            }
+            $processed++;
+
             try {
                 $this->harvestTeam((int) $teamId, $candidates);
             } catch (Throwable $e) {

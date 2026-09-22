@@ -19,14 +19,22 @@ Artisan::command('inspire', function () {
 | planifiées sont des filets de sécurité incrémentaux. Toutes sont protégées
 | par withoutOverlapping() pour éviter les exécutions concurrentes.
 |
+| La sortie (et les erreurs) de chaque tâche sont redirigées vers
+| storage/logs/schedule.log, horodatées par le scheduler, pour suivre en
+| direct le bon déroulement du harvest. Pensez à déclencher le scheduler :
+|  - local : docker compose up -d scheduler   (php artisan schedule:work)
+|  - prod  : crontab « * * * * * php artisan schedule:run »
+|
 */
 
-Schedule::command('app:sync-seasons')->everySixHours()->withoutOverlapping();
+$log = storage_path('logs/schedule.log');
 
-Schedule::command('app:sync-tables')->everySixHours()->withoutOverlapping();
+Schedule::command('app:sync-seasons')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
 
-Schedule::command('app:harvest-players')->everySixHours()->withoutOverlapping();
+Schedule::command('app:sync-tables')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
 
-Schedule::command('app:compute-palmares')->everyThirtyMinutes()->withoutOverlapping(180);
+Schedule::command('app:harvest-players')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
 
-Schedule::command('app:generate-json')->everyThreeHours()->withoutOverlapping();
+Schedule::command('app:compute-palmares')->everyThirtyMinutes()->withoutOverlapping(180)->appendOutputTo($log);
+
+Schedule::command('app:generate-json')->everyThreeHours()->withoutOverlapping()->appendOutputTo($log);
