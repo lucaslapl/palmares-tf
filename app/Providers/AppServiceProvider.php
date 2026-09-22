@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Services\Etf2l\Etf2lApiClient;
 use Illuminate\Console\Events\ScheduledTaskFailed;
 use Illuminate\Console\Events\ScheduledTaskFinished;
 use Illuminate\Support\Facades\Event;
@@ -17,7 +18,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Le client API est lié depuis le config plutôt que résolu avec ses
+        // valeurs par défaut : c'est le seul endroit (avec palmares.php) qui
+        // pilote l'URL, le délai de throttle et le timeout.
+        $this->app->bind(Etf2lApiClient::class, function (): Etf2lApiClient {
+            return new Etf2lApiClient(
+                (string) config('palmares.etf2l.base_url'),
+                (string) config('palmares.etf2l.user_agent'),
+                (float) config('palmares.etf2l.request_delay_s'),
+                (int) config('palmares.etf2l.http_timeout_s'),
+            );
+        });
     }
 
     /**

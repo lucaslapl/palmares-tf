@@ -111,6 +111,21 @@ final class SeasonsRepository
     }
 
     /**
+     * Nombre de saisons archivées dont les tables doivent encore être ingérées.
+     *
+     * Seules les compétitions archivées comptent : une compétition en cours
+     * (archived = false) peut rester sans tables indéfiniment et ne doit pas
+     * bloquer la fin du backfill.
+     */
+    public function countPendingArchived(): int
+    {
+        return (int) DB::table('seasons')
+            ->whereNull('ingested_at')
+            ->where('archived', true)
+            ->count();
+    }
+
+    /**
      * Repasse toutes les saisons en attente de tables (ingested_at = NULL).
      * Utilisé pour réarmer un import qui aurait marqué des saisons traitées
      * à tort (compétitions en cours ou réponses API vides).

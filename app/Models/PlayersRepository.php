@@ -89,6 +89,18 @@ final class PlayersRepository
     }
 
     /**
+     * Nombre de joueurs dont le palmarès n'a jamais été calculé.
+     *
+     * Contrairement à pending(), on ne considère que computed_at NULL : les
+     * joueurs dont la staleness est dépassée sont un rafraîchissement
+     * différé, pas du travail de backfill.
+     */
+    public function countUncomputed(): int
+    {
+        return (int) DB::table('players')->whereNull('computed_at')->count();
+    }
+
+    /**
      * Joueurs dont le palmarès reste à calculer ou est obsolète
      * (traités en lot par app:compute-palmares).
      *
