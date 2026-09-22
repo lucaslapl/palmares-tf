@@ -86,6 +86,18 @@ final class SeasonsRepository
     }
 
     /**
+     * Repasse toutes les saisons en attente de tables (ingested_at = NULL).
+     * Utilisé pour réarmer un import qui aurait marqué des saisons traitées
+     * à tort (compétitions en cours ou réponses API vides).
+     *
+     * @return int nombre de saisons réarmées
+     */
+    public function resetTableIngestion(): int
+    {
+        return DB::table('seasons')->update(['ingested_at' => null, 'updated_at' => now()]);
+    }
+
+    /**
      * Liste des saisons pour l'affichage.
      *
      * @return array<int, object>

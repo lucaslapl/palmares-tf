@@ -53,6 +53,19 @@ final class TableImporter
             try {
                 $rows = $this->ingestSeason($season, $medals);
                 $ingested += count($rows);
+
+                // Une saison sans table exploitable (compétition en cours,
+                // tables vides, 404) ne doit PAS sortir du pending : elle sera
+                // retentée à la prochaine passe dès que des tables existent.
+                if ($rows === []) {
+                    Log::info('TableImporter : saison sans table exploitable, laissée en attente', [
+                        'season_id' => (int) $season->id,
+                        'competition' => $season->etf2l_competition_id,
+                    ]);
+
+                    continue;
+                }
+
                 $this->seasons->markTableIngested((int) $season->id);
 
                 if ($progress !== null) {

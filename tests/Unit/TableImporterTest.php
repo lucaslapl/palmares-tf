@@ -68,6 +68,38 @@ final class TableImporterTest extends TestCase
     }
 
     #[Test]
+    public function season_without_tables_stays_pending(): void
+    {
+        DB::table('seasons')->insert([
+            'etf2l_competition_id' => 971,
+            'name' => '6v6 Season 50 (Autumn 2025)',
+            'category' => '6v6 Season',
+            'format' => '6s',
+            'archived' => false,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::fake(['*/competition/971/tables*' => Http::response(['tables' => []])]);
+
+        $importer = new TableImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+            new TeamsRepository,
+        );
+
+        $count = $importer->run();
+
+        // Rien d'ingéré, et surtout : la saison REste pending pour être retentée.
+        $this->assertSame(0, $count);
+        $this->assertDatabaseCount('season_teams', 0);
+        $season = (new SeasonsRepository)->findByCompetitionId(971);
+        $this->assertNull($season->ingested_at);
+        $this->assertCount(1, (new SeasonsRepository)->pendingTables());
+        $this->assertSame([], $importer->errors());
+    }
+
+    #[Test]
     public function isolated_season_failure_does_not_stop_the_batch(): void
     {
         // Échec rapide (1 seule tentative) pour rester dans un temps de test court.

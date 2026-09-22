@@ -13,6 +13,7 @@ final class SyncTablesCommand extends Command
 {
     protected $signature = 'app:sync-tables
         {--force : Ré-ingère les tables de toutes les saisons, même déjà traitées}
+        {--reset : Repasse les saisons en attente (ingested_at=NULL) avant l\'import}
         {--limit=0 : Nombre maximum de saisons à traiter (0 = toutes)}';
 
     protected $description = 'Importe les tables de classement final des saisons';
@@ -20,7 +21,15 @@ final class SyncTablesCommand extends Command
     public function handle(TableImporter $importer, SeasonsRepository $seasons): int
     {
         $force = (bool) $this->option('force');
+        $reset = (bool) $this->option('reset');
         $limit = (int) max(0, (int) $this->option('limit'));
+
+        if ($reset) {
+            $seasons->resetTableIngestion();
+            $this->line('Toutes les saisons sont repassées en attente de tables.');
+            Log::info('app:sync-tables : ingestion réinitialisée');
+        }
+
         $mode = $force ? 'force' : 'pending';
         $this->info("Synchronisation des tables ({$mode})…");
 

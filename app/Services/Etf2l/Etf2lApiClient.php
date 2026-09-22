@@ -69,9 +69,18 @@ final class Etf2lApiClient
     public function competitionTables(int $competitionId): array
     {
         $ttl = (int) config('palmares.etf2l.cache_ttl.tables');
-        $payload = $this->getJson('/competition/'.$competitionId.'/tables', $ttl);
+        $path = '/competition/'.$competitionId.'/tables';
+        $payload = $this->getJson($path, $ttl);
+        $tables = $payload['tables'] ?? [];
 
-        return $payload['tables'] ?? [];
+        // Une réponse sans tables (compétition en cours ou pas encore publiée)
+        // ne doit pas être gardée en cache : dès qu'ETF2L publiera les tables,
+        // la prochaine passe devra les récupérer sans attendre le TTL.
+        if ($tables === []) {
+            $this->invalidateCache($path);
+        }
+
+        return $tables;
     }
 
     /**
@@ -163,6 +172,17 @@ final class Etf2lApiClient
             ['url'],
             ['payload', 'fetched_at'],
         );
+    }
+
+    /**
+     * Purge une entrée de cache (utilisée pour forcer un re-fetch au prochain
+     * appel, e.g. les tables vides d'une compétition encore en cours).
+     */
+    private function invalidateCache(string $path, array $query = []): void
+    {
+        DB::table('etf2l_api_cache')
+            ->where('url', $this->buildUrl($path, $query))
+            ->delete();
     }
 
     /**
