@@ -12,6 +12,33 @@ use Illuminate\Support\Facades\DB;
 final class SeasonsRepository
 {
     /**
+     * Compétitions satellites jamais affichées sur le site : brackets de
+     * playoffs, matches de 3e place, qualifications. Elles n'ont pas de table
+     * de classement finale et ne sont utiles qu'au calcul des profils joueurs
+     * (rounds de playoffs), pas à l'affichage des saisons.
+     */
+    private const PLAYOFF_PATTERNS = [
+        '/playoffs?/i',
+        '/3rd\s*place/i',
+        '/qualif/i',
+    ];
+
+    /**
+     * Une compétition au nom de « sous-compétition » (playoffs, 3e place,
+     * qualifications) n'est pas une saison à exposer dans la liste.
+     */
+    public static function isPlayoffCompetition(string $name): bool
+    {
+        foreach (self::PLAYOFF_PATTERNS as $pattern) {
+            if (preg_match($pattern, $name) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Ajoute une compétition si elle n'existe pas déjà (par id ETF2L).
      *
      * @param  array<string, mixed>  $competition  item de /competition/list

@@ -100,6 +100,37 @@ final class TableImporterTest extends TestCase
     }
 
     #[Test]
+    public function archived_competition_without_tables_is_marked_ingested(): void
+    {
+        DB::table('seasons')->insert([
+            'etf2l_competition_id' => 501,
+            'name' => 'Season 27: High Playoffs',
+            'category' => 'Highlander',
+            'format' => '9v9',
+            'archived' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Http::fake(['*/competition/501/tables*' => Http::response(['tables' => []])]);
+
+        $importer = new TableImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+            new TeamsRepository,
+        );
+
+        $count = $importer->run();
+
+        // Compétition close sans classement final : marquée ingérée, plus
+        // jamais retentée à la prochaine passe.
+        $this->assertSame(0, $count);
+        $this->assertNotNull((new SeasonsRepository)->findByCompetitionId(501)->ingested_at);
+        $this->assertCount(0, (new SeasonsRepository)->pendingTables());
+        $this->assertSame([], $importer->errors());
+    }
+
+    #[Test]
     public function isolated_season_failure_does_not_stop_the_batch(): void
     {
         // Échec rapide (1 seule tentative) pour rester dans un temps de test court.

@@ -13,7 +13,10 @@ final class SeasonController extends Controller
 {
     public function index(SeasonsRepository $seasons): View
     {
-        $all = $seasons->listAll();
+        $all = array_values(array_filter(
+            $seasons->listAll(),
+            static fn (object $season): bool => ! SeasonsRepository::isPlayoffCompetition((string) $season->name),
+        ));
         $formats = (array) config('palmares.formats');
 
         $byFormat = ['6s' => [], '9v9' => []];
@@ -32,7 +35,9 @@ final class SeasonController extends Controller
     {
         $season = $seasons->find($season);
 
-        if ($season === null) {
+        // Les sous-compétitions (playoffs, 3e place, qualifications) ne sont
+        // pas exposées comme des saisons : pas de table de classement à montrer.
+        if ($season === null || SeasonsRepository::isPlayoffCompetition((string) $season->name)) {
             throw new NotFoundHttpException('Saison introuvable.');
         }
 
