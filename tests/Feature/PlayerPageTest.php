@@ -31,8 +31,28 @@ final class PlayerPageTest extends TestCase
             'computed_at' => time(),
         ]);
 
+        DB::table('seasons')->insert([
+            'etf2l_competition_id' => 971,
+            'name' => '6v6 Season 50 (Autumn 2025)',
+            'category' => '6v6 Season',
+            'format' => '6s',
+            'archived' => true,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('teams')->insert([
+            'etf2l_team_id' => 32593,
+            'name' => 'Witness Gaming',
+            'country' => 'European',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         DB::table('palmares')->insert([[
             'player_id' => 1,
+            'season_id' => 1,
+            'team_id' => 1,
             'competition_id' => 971,
             'format' => '6s',
             'competition_name' => '6v6 Season 50 (Autumn 2025)',
@@ -54,6 +74,17 @@ final class PlayerPageTest extends TestCase
             ->assertSee('Witness Gaming')
             ->assertSee('Gold')
             ->assertSee('https://steamcommunity.com/profiles/76561198033727092');
+    }
+
+    #[Test]
+    public function profile_links_to_etf2l_profile_flags_and_records(): void
+    {
+        $this->get('/players/'.self::PLAYER_ID)
+            ->assertOk()
+            ->assertSee('https://etf2l.org/forum/user/'.self::PLAYER_ID.'/', false)
+            ->assertSee('https://etf2l.org/images/flags/European.gif', false)
+            ->assertSee(route('seasons.show', ['season' => 1]), false)
+            ->assertSee('https://etf2l.org/teams/32593/', false);
     }
 
     #[Test]

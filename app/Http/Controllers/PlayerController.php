@@ -54,8 +54,10 @@ final class PlayerController extends Controller
 
             return [
                 'format' => $formats[$format]['label'] ?? $format,
+                'season_id' => $row->season_id !== null ? (int) $row->season_id : null,
                 'competition_name' => (string) $row->competition_name,
                 'team_name' => (string) $row->team_name,
+                'team_etf2l_id' => $row->team_etf2l_id !== null ? (int) $row->team_etf2l_id : null,
                 'division_name' => (string) $row->division_name,
                 'medal' => $row->medal !== null ? (string) $row->medal : null,
                 'medal_label' => $row->medal !== null ? ($medalLabels[(string) $row->medal] ?? '') : null,

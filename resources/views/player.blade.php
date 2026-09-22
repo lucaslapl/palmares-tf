@@ -10,7 +10,12 @@
     <div class="player-identity">
         <h1 class="page-title">{{ $player->name }}</h1>
         <p class="muted">
-            {{ $player->country ?? 'Unknown country' }}
+            @include('partials.flag', ['country' => $player->country ?? ''])
+            @if ($player->etf2l_id)
+                <a href="https://etf2l.org/forum/user/{{ $player->etf2l_id }}/" rel="noopener" target="_blank">
+                    ETF2L profile ↗
+                </a>
+            @endif
             @if ($player->steam_id64)
                 ·
                 <a href="https://steamcommunity.com/profiles/{{ $player->steam_id64 }}" rel="noopener" target="_blank">
@@ -76,13 +81,23 @@
                 @foreach ($awards as $award)
                 <tr>
                     <td>
-                        {{ $award['competition_name'] }}
+                        @if ($award['season_id'])
+                            <a href="{{ route('seasons.show', ['season' => $award['season_id']]) }}">{{ $award['competition_name'] }}</a>
+                        @else
+                            {{ $award['competition_name'] }}
+                        @endif
                         @if ($award['season_time'] > 0)
                             <span class="muted small">({{ \Carbon\Carbon::createFromTimestamp($award['season_time'])->translatedFormat('M Y') }})</span>
                         @endif
                     </td>
                     <td>{{ $award['format'] }}</td>
-                    <td>{{ $award['team_name'] }}</td>
+                    <td>
+                        @if ($award['team_etf2l_id'])
+                            <a href="https://etf2l.org/teams/{{ $award['team_etf2l_id'] }}/" rel="noopener" target="_blank">{{ $award['team_name'] }}</a>
+                        @else
+                            {{ $award['team_name'] }}
+                        @endif
+                    </td>
                     <td class="muted">{{ $award['division_name'] ?: '—' }}</td>
                     <td>
                         @if ($award['medal'])

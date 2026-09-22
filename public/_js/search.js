@@ -22,11 +22,15 @@
             link.href = player.url;
             link.textContent = player.name;
 
-            if (player.country) {
-                const country = document.createElement('span');
-                country.className = 'muted';
-                country.textContent = '· ' + player.country;
-                link.appendChild(country);
+            if (player.flag) {
+                const flag = document.createElement('img');
+                flag.className = 'flag';
+                flag.src = player.flag;
+                flag.alt = player.country;
+                flag.title = player.country;
+                flag.loading = 'lazy';
+                flag.onerror = () => flag.replaceWith(document.createTextNode(player.country));
+                link.appendChild(flag);
             }
 
             results.appendChild(link);

@@ -140,6 +140,7 @@ main.container { flex: 1; padding: 28px 0 48px; }
 
 .search-results { list-style: none; padding: 0; margin: 22px 0 0; }
 .search-results li { padding: 8px 2px; border-bottom: 1px solid var(--panel-edge); }
+.search-result-name { margin-right: 8px; }
 
 /* ---------- Panels & tables ---------- */
 .panel {
@@ -205,6 +206,16 @@ main.container { flex: 1; padding: 28px 0 48px; }
     letter-spacing: .4px;
 }
 
+/* ---------- Flags ---------- */
+.flag {
+    width: 20px;
+    height: 14px;
+    object-fit: cover;
+    vertical-align: middle;
+    border-radius: 2px;
+    border: 1px solid var(--panel-edge);
+}
+
 /* ---------- Tabs & pager ---------- */
 .tabs { display: flex; gap: 6px; margin: 6px 0 14px; }
 .tab {
@@ -232,6 +243,9 @@ main.container { flex: 1; padding: 28px 0 48px; }
 .season-list { list-style: none; margin: 0; padding: 8px 18px 14px; max-height: 420px; overflow-y: auto; }
 .season-list li { padding: 6px 0; border-bottom: 1px solid var(--panel-edge); }
 .season-list li:last-child { border-bottom: 0; }
+
+.season-archive { margin-left: 6px; font-size: .8rem; }
+.season-archive:hover { text-decoration: none; }
 
 .season-header .muted { margin: 0 0 4px; text-transform: uppercase; letter-spacing: .6px; font-size: .8rem; }
 

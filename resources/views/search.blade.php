@@ -21,8 +21,8 @@
         @foreach ($results as $player)
         <li>
             <a href="{{ route('player.show', ['id' => $player['etf2l_id']]) }}">
-                {{ $player['name'] }}
-                <span class="muted">{{ $player['country'] }}</span>
+                <span class="search-result-name">{{ $player['name'] }}</span>
+                @include('partials.flag', ['country' => $player['country']])
             </a>
         </li>
         @endforeach

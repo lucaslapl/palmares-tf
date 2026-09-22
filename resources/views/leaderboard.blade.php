@@ -38,7 +38,7 @@
                     {{ $player['name'] }}
                 @endif
             </td>
-            <td class="muted">{{ $player['country'] }}</td>
+            <td class="muted">@include('partials.flag', ['country' => $player['country']])</td>
             <td class="num strong">{{ number_format($player['points']) }}</td>
             <td class="num">{{ $player['golds'] }}</td>
             <td class="num">{{ $player['silvers'] }}</td>

@@ -51,6 +51,7 @@ final class SeasonController extends Controller
                 'season_teams.medal',
                 'teams.name',
                 'teams.country',
+                'teams.etf2l_team_id',
             ])
             ->orderBy('season_teams.division_name')
             ->orderByRaw('CASE WHEN season_teams.ach IS NULL THEN 1 ELSE 0 END, season_teams.ach')

@@ -36,6 +36,7 @@ final class SearchPageTest extends TestCase
         $this->get('/search?q=kapt')
             ->assertOk()
             ->assertSee('kaptain')
+            ->assertSee('https://etf2l.org/images/flags/European.gif', false)
             ->assertDontSee('harbeh');
     }
 
@@ -48,6 +49,7 @@ final class SearchPageTest extends TestCase
 
         $this->assertSame('harbeh', $response->json('players.0.name'));
         $this->assertSame(70032, $response->json('players.0.etf2l_id'));
+        $this->assertSame('https://etf2l.org/images/flags/France.gif', $response->json('players.0.flag'));
         $this->assertSame(
             route('player.show', ['id' => '70032']),
             $response->json('players.0.url'),

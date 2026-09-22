@@ -63,6 +63,7 @@ final class SearchController extends Controller
                 'etf2l_id' => (int) ($player['etf2l_id'] ?? 0),
                 'name' => (string) ($player['name'] ?? ''),
                 'country' => (string) ($player['country'] ?? ''),
+                'flag' => country_flag_url((string) ($player['country'] ?? '')),
                 'url' => route('player.show', ['id' => (string) ($player['etf2l_id'] ?? 0)]),
             ];
 

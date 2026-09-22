@@ -37,6 +37,25 @@ if (! function_exists('ordinal')) {
     }
 }
 
+if (! function_exists('country_flag_url')) {
+    /**
+     * URL du drapeau d'un pays tel qu'hébergé par ETF2L, ou null si la
+     * valeur fournie (libellé pays de l'API) est invalide. Seuls sont
+     * acceptés les libellés alphabétiques (lettres, espaces) : on garde une
+     * whitelist stricte sur cette entrée externe avant de construire l'URL.
+     */
+    function country_flag_url(string $country): ?string
+    {
+        $country = trim($country);
+
+        if ($country === '' || preg_match('/^[\p{L} ]+$/u', $country) !== 1) {
+            return null;
+        }
+
+        return 'https://etf2l.org/images/flags/'.rawurlencode($country).'.gif';
+    }
+}
+
 if (! function_exists('palmares_asset')) {
     /**
      * URL de ressource statique avec cache busting (?v=filemtime), dans l'esprit

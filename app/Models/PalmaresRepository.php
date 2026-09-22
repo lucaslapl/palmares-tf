@@ -73,8 +73,10 @@ final class PalmaresRepository
     public function awardsForPlayer(int $playerId): array
     {
         return DB::table('palmares')
-            ->where('player_id', $playerId)
-            ->orderByDesc('season_time')
+            ->leftJoin('teams', 'teams.id', '=', 'palmares.team_id')
+            ->where('palmares.player_id', $playerId)
+            ->select(['palmares.*', 'teams.etf2l_team_id as team_etf2l_id'])
+            ->orderByDesc('palmares.season_time')
             ->get()
             ->all();
     }
