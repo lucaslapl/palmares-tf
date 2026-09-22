@@ -64,20 +64,18 @@ final class SeasonsRepository
 
     private function resolveFormat(string $type, string $category, string $name): ?string
     {
-        $modeMap = (array) config('palmares.mode_map');
-        if (isset($modeMap[$type])) {
-            return (string) $modeMap[$type];
-        }
-
-        // Repli sur le nom (certaines compétitions Highlander ont un type "6v6" erroné).
-        if (stripos($name, 'Highlander') !== false || $category === 'Highlander Season') {
+        // La catégorie est l'indicateur fiable : certaines compétitions
+        // Highlander ont un type "6v6" erroné dans l'API (ex. HL Season 32).
+        if ($category === 'Highlander Season' || stripos($name, 'Highlander') !== false) {
             return '9v9';
         }
-        if (stripos($name, '6v6') !== false || $category === '6v6 Season') {
+        if ($category === '6v6 Season' || stripos($name, '6v6') !== false) {
             return '6s';
         }
 
-        return null;
+        $modeMap = (array) config('palmares.mode_map');
+
+        return isset($modeMap[$type]) ? (string) $modeMap[$type] : null;
     }
 
     public function findByCompetitionId(int $etf2lCompetitionId): ?object

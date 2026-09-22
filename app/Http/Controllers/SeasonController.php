@@ -11,6 +11,24 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class SeasonController extends Controller
 {
+    /**
+     * Rangs de prestige des divisions nommées (0 = la plus prestigieuse).
+     * Les divisions numérotées des anciennes saisons sont intercalées par
+     * divisionRank() : un numéro plus petit = niveau plus haut.
+     */
+    private const DIVISION_RANK = [
+        'premiership' => 0,
+        'premier division' => 0,
+        'top division' => 0,
+        'top tiers' => 0,
+        'high' => 10,
+        'mid' => 20,
+        'middle' => 20,
+        'low' => 30,
+        'open' => 40,
+        'fresh' => 50,
+    ];
+
     public function index(SeasonsRepository $seasons): View
     {
         $all = array_values(array_filter(
@@ -55,7 +73,9 @@ final class SeasonController extends Controller
             ])
             ->orderBy('season_teams.division_name')
             ->orderByRaw('CASE WHEN season_teams.ach IS NULL THEN 1 ELSE 0 END, season_teams.ach')
-            ->get();
+            ->get()
+            ->sortBy(fn (object $row): int => $this->divisionRank((string) $row->division_name))
+            ->values();
 
         $divisions = $rows->groupBy(fn ($row): string => (string) $row->division_name);
         $formats = (array) config('palmares.formats');
@@ -66,5 +86,28 @@ final class SeasonController extends Controller
             'divisions' => $divisions,
             'crowds' => $divisions->mapWithKeys(fn ($group, string $division): array => [$division => count($group)]),
         ]);
+    }
+
+    /**
+     * Rang de tri d'une division : les paliers nommés d'abord, puis les
+     * divisions numérotées ("Division 1", "Division 2 & 3", ...).
+     *
+     * @return int en plus petit rang = plus prestigieux
+     */
+    private function divisionRank(string $division): int
+    {
+        $key = strtolower(trim($division));
+        if (isset(self::DIVISION_RANK[$key])) {
+            return self::DIVISION_RANK[$key];
+        }
+
+        if (preg_match('/division\s+(\d+)/i', $division, $m) === 1) {
+            return 5 + 5 * (int) $m[1];
+        }
+        if (preg_match('/tier\s+(\d+)/i', $division, $m) === 1) {
+            return 5 + 5 * (int) $m[1];
+        }
+
+        return PHP_INT_MAX;
     }
 }

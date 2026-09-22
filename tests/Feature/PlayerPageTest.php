@@ -88,6 +88,29 @@ final class PlayerPageTest extends TestCase
     }
 
     #[Test]
+    public function profile_links_nations_cup_records_to_etf2l_archives(): void
+    {
+        // Les Nations Cup n'ont pas de saison interne : les records sans
+        // season_id doivent rediriger vers les archives ETF2L (competition_id).
+        DB::table('palmares')->insert([
+            'player_id' => 1,
+            'season_id' => null,
+            'competition_id' => 928,
+            'team_id' => 1,
+            'format' => '6s',
+            'competition_name' => '6v6 Nations Cup #10: Playoffs',
+            'team_name' => 'Witness Gaming',
+            'division_name' => '',
+            'playoff_round' => 'Final',
+            'season_time' => 1600000000,
+        ]);
+
+        $this->get('/players/'.self::PLAYER_ID)
+            ->assertOk()
+            ->assertSee('https://etf2l.org/etf2l/archives/928/', false);
+    }
+
+    #[Test]
     public function unknown_player_id_returns_404(): void
     {
         Http::fake([

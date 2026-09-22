@@ -292,6 +292,17 @@ final class ComputePalmaresService
             return null;
         }
 
+        // Saisons de ligue : la catégorie est l'indicateur fiable (certaines
+        // compétitions Highlander ont un type "6v6" erroné dans l'API).
+        if (in_array($category, (array) config('palmares.categories.seasons'), true)) {
+            if ($category === 'Highlander Season' || stripos($compName, 'Highlander') !== false) {
+                return '9v9';
+            }
+            if ($category === '6v6 Season' || stripos($compName, '6v6') !== false) {
+                return '6s';
+            }
+        }
+
         return isset($modeMap[$type]) ? (string) $modeMap[$type] : null;
     }
 

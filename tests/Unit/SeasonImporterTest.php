@@ -71,4 +71,23 @@ final class SeasonImporterTest extends TestCase
         $this->assertSame(1, $count);
         $this->assertDatabaseCount('seasons', 1);
     }
+
+    #[Test]
+    public function highlander_competition_with_errored_type_is_classified_9v9(): void
+    {
+        // Certaines compétitions Highlander ont un type "6v6" erroné dans
+        // l'API (ex. Highlander Season 32) : la catégorie prime sur le type.
+        (new SeasonsRepository)->insertOrIgnoreCompetition([
+            'id' => 926,
+            'name' => 'Highlander Season 32 (Summer 2024): Premiership',
+            'category' => 'Highlander Season',
+            'type' => '6v6',
+            'archived' => true,
+        ]);
+
+        $season = (new SeasonsRepository)->findByCompetitionId(926);
+
+        $this->assertNotNull($season);
+        $this->assertSame('9v9', $season->format);
+    }
 }

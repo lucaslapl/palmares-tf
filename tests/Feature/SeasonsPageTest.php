@@ -95,4 +95,44 @@ final class SeasonsPageTest extends TestCase
         $this->get(route('seasons.show', ['season' => $regular]))->assertOk();
         $this->get(route('seasons.show', ['season' => $playoff]))->assertNotFound();
     }
+
+    #[Test]
+    public function show_orders_divisions_by_prestige(): void
+    {
+        $season = $this->insertSeason(971, '6v6 Season 50 (Autumn 2025)');
+
+        // Insertion volontairement dans le désordre : l'affichage doit
+        // respecter Premiership > High > numérotées (croissant) > Mid > Low > Open.
+        $order = ['Open', 'Low', 'Mid', 'Division 3', 'Division 2', 'High', 'Premiership'];
+
+        foreach ($order as $i => $division) {
+            $teamId = (int) DB::table('teams')->insertGetId([
+                'etf2l_team_id' => 40000 + $i,
+                'name' => 'Team '.$division,
+                'country' => 'European',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            DB::table('season_teams')->insert([
+                'season_id' => $season,
+                'team_id' => $teamId,
+                'division_name' => $division,
+                'ach' => $i + 1,
+                'medal' => null,
+            ]);
+        }
+
+        $this->get(route('seasons.show', ['season' => $season]))
+            ->assertOk()
+            ->assertSeeInOrder([
+                '<h2>Premiership</h2>',
+                '<h2>High</h2>',
+                '<h2>Division 2</h2>',
+                '<h2>Division 3</h2>',
+                '<h2>Mid</h2>',
+                '<h2>Low</h2>',
+                '<h2>Open</h2>',
+            ]);
+    }
 }

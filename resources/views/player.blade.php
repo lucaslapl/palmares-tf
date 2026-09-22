@@ -83,6 +83,8 @@
                     <td>
                         @if ($award['season_id'])
                             <a href="{{ route('seasons.show', ['season' => $award['season_id']]) }}">{{ $award['competition_name'] }}</a>
+                        @elseif ($award['competition_id'])
+                            <a href="https://etf2l.org/etf2l/archives/{{ $award['competition_id'] }}/" rel="noopener" target="_blank">{{ $award['competition_name'] }} ↗</a>
                         @else
                             {{ $award['competition_name'] }}
                         @endif
