@@ -30,8 +30,8 @@ return [
         'user_agent' => 'palmares.tf/1.0',
         'request_delay_s' => 1.1,
         'http_timeout_s' => 20,
-        'max_attempts' => 3,
-        'backoffs' => [0, 5, 20],
+        'max_attempts' => 5,
+        'backoffs' => [0, 2, 10, 30, 60],
         'results_per_page' => 50,
         'cache_ttl' => [
             // Résultats de joueurs (1 semaine).

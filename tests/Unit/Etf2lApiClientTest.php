@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 final class Etf2lApiClientTest extends TestCase
@@ -90,6 +91,48 @@ final class Etf2lApiClientTest extends TestCase
 
         $this->assertSame([], $this->client->getJson('/player/0', 3600));
         $this->assertDatabaseHas('etf2l_api_cache', ['url' => 'https://api.example.test/player/0']);
+    }
+
+    #[Test]
+    public function retries_on_429_honoring_retry_after_then_succeeds(): void
+    {
+        config()->set('palmares.etf2l.max_attempts', 2);
+
+        Http::fake([
+            'api.example.test/*' => Http::sequence()
+                ->push(['message' => 'Too Many Attempts.'], 429, ['Retry-After' => 1])
+                ->push(['status' => ['code' => 200], 'ok' => true], 200),
+        ]);
+
+        $payload = $this->client->getJson('/player/70031', 3600);
+
+        $this->assertEquals(['status' => ['code' => 200], 'ok' => true], $payload);
+        $this->assertCount(2, Http::recorded());
+        $this->assertDatabaseHas('etf2l_api_cache', ['url' => 'https://api.example.test/player/70031']);
+    }
+
+    #[Test]
+    public function persistent_429_fails_after_max_attempts(): void
+    {
+        config()->set('palmares.etf2l.max_attempts', 2);
+        config()->set('palmares.etf2l.backoffs', [0, 0]);
+
+        Http::fake([
+            'api.example.test/*' => Http::response(['message' => 'Too Many Attempts.'], 429),
+        ]);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('impossible après 2 tentatives');
+
+        $this->client->getJson('/player/70031', 3600);
+    }
+
+    protected function tearDown(): void
+    {
+        config()->set('palmares.etf2l.max_attempts', 5);
+        config()->set('palmares.etf2l.backoffs', [0, 2, 10, 30, 60]);
+
+        parent::tearDown();
     }
 
     #[Test]

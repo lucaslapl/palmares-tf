@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Etf2l;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -18,8 +19,6 @@ use RuntimeException;
  */
 final class Etf2lApiClient
 {
-    private float $lastHttpAt = 0;
-
     public function __construct(
         private readonly string $baseUrl = 'https://api-v2.etf2l.org',
         private readonly string $userAgent = 'palmares.tf/1.0',
@@ -204,13 +203,49 @@ final class Etf2lApiClient
         return $url;
     }
 
+    /**
+     * Espace chaque appel HTTP d'au moins delayS secondes, tous processus
+     * confondus (scheduler, backfill manuel, web à la demande). Un verrou de
+     * fichier (flock) sérialise les processus : le débit combiné reste donc
+     * sous la limite publique de l'API (~60 req/min) même en cas de tâches
+     * planifiées concurrentes.
+     */
     private function throttle(): void
     {
-        $elapsed = microtime(true) - $this->lastHttpAt;
-        if ($this->lastHttpAt > 0 && $elapsed < $this->delayS) {
-            usleep((int) (($this->delayS - $elapsed) * 1e6));
+        $lockPath = palmares_data_path('api-throttle.lock');
+        $dir = dirname($lockPath);
+        if (! is_dir($dir) && ! mkdir($dir, 0777, true) && ! is_dir($dir)) {
+            // Répertoire illisible : repli sur un délai local seul.
+            usleep((int) ($this->delayS * 1e6));
+
+            return;
         }
-        $this->lastHttpAt = microtime(true);
+
+        $lock = @fopen($lockPath, 'c');
+        if ($lock === false) {
+            usleep((int) ($this->delayS * 1e6));
+
+            return;
+        }
+
+        try {
+            flock($lock, LOCK_EX);
+
+            $raw = file_get_contents($lockPath);
+            $last = is_string($raw) ? (float) $raw : 0.0;
+            $wait = $last + $this->delayS - microtime(true);
+
+            if ($wait > 0) {
+                usleep((int) ($wait * 1e6));
+            }
+
+            // L'horodatage sert de « dernière sortie d'appel » pour les autres
+            // processus ; on le pose sous verrou pour éviter toute course.
+            file_put_contents($lockPath, (string) microtime(true));
+        } finally {
+            flock($lock, LOCK_UN);
+            fclose($lock);
+        }
     }
 
     /**
@@ -218,14 +253,21 @@ final class Etf2lApiClient
      */
     private function fetchWithRetry(string $url): array
     {
-        $attempts = (int) config('palmares.etf2l.max_attempts', 3);
-        $backoffs = (array) config('palmares.etf2l.backoffs', [0, 5, 20]);
+        $attempts = (int) config('palmares.etf2l.max_attempts', 5);
+        $backoffs = (array) config('palmares.etf2l.backoffs', [0, 2, 10, 30, 60]);
+        $retryAfter = null;
         $lastError = 'raison inconnue';
 
         for ($i = 1; $i <= $attempts; $i++) {
             if ($i > 1) {
-                $wait = (int) ($backoffs[min($i - 1, count($backoffs) - 1)] ?? 0);
-                sleep($wait);
+                // Le header Retry-After de l'API (en secondes) prime sur le
+                // backoff fixe ; l'attente est plafonnée à 120 s.
+                $wait = $retryAfter ?? ($backoffs[min($i - 1, count($backoffs) - 1)] ?? 0);
+                $retryAfter = null;
+
+                if ($wait > 0) {
+                    sleep((int) min($wait, 120));
+                }
             }
 
             $this->throttle();
@@ -235,43 +277,51 @@ final class Etf2lApiClient
                 ->get($url);
 
             $data = $response->json();
+            $httpCode = (int) $response->status();
+
             if (! is_array($data)) {
-                $lastError = 'HTTP '.$response->status().' avec réponse non-JSON';
+                $lastError = 'HTTP '.$httpCode.' avec réponse non-JSON';
+
+                if (in_array($httpCode, [429, 500, 502, 503, 504], true)) {
+                    $retryAfter = $this->retryAfterHeader($response);
+                }
 
                 continue;
             }
 
             $code = isset($data['status']['code']) ? (int) $data['status']['code'] : null;
 
-            if ($code === 200) {
+            if ($code === 200 || ($code === null && $httpCode >= 200 && $httpCode < 300)) {
                 return $data;
-            }
-
-            if ($code === null) {
-                $httpCode = $response->status();
-
-                if ($httpCode >= 200 && $httpCode < 300) {
-                    return $data;
-                }
-
-                $lastError = 'HTTP '.$httpCode.' (réponse sans status)';
-
-                continue;
             }
 
             if ($code === 404) {
                 return [];
             }
 
-            if (in_array($code, [429, 500, 502, 503, 504], true)) {
-                $lastError = 'HTTP '.$code.' (réponse transitoire)';
+            if (in_array($code ?? $httpCode, [429, 500, 502, 503, 504], true)) {
+                $lastError = 'HTTP '.$httpCode.' (réponse transitoire)';
+
+                if (in_array($code ?? $httpCode, [429], true)) {
+                    $retryAfter = $this->retryAfterHeader($response);
+                }
 
                 continue;
             }
 
-            throw new RuntimeException("L'API ETF2L a répondu négativement pour {$url} : HTTP {$code}");
+            throw new RuntimeException("L'API ETF2L a répondu négativement pour {$url} : HTTP {$httpCode}");
         }
 
         throw new RuntimeException("Appel API ETF2L impossible après {$attempts} tentatives ({$url}) : ".$lastError);
+    }
+
+    /**
+     * Secondes de retry demandées par l'API (header Retry-After), ou null.
+     */
+    private function retryAfterHeader(Response $response): ?int
+    {
+        $header = $response->header('Retry-After');
+
+        return $header !== null ? max(0, (int) $header) : null;
     }
 }

@@ -7,6 +7,8 @@ namespace App\Services\Palmares;
 use App\Models\PlayersRepository;
 use App\Models\TeamsRepository;
 use App\Services\Etf2l\Etf2lApiClient;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 /**
  * Récolte les joueurs candidats depuis les équipes connues (app:harvest-players).
@@ -18,6 +20,13 @@ use App\Services\Etf2l\Etf2lApiClient;
  */
 final class RosterHarvester
 {
+    /**
+     * Équipes en échec lors de la dernière exécution (retentées ensuite).
+     *
+     * @var list<string>
+     */
+    private array $errors = [];
+
     public function __construct(
         private readonly Etf2lApiClient $client,
         private readonly TeamsRepository $teams,
@@ -30,43 +39,74 @@ final class RosterHarvester
     public function run(?callable $progress = null): int
     {
         $candidates = [];
+        $this->errors = [];
 
         foreach ($this->teams->allEtf2lIds() as $teamId) {
-            $team = $this->client->team($teamId);
-            if ($team === []) {
+            try {
+                $this->harvestTeam((int) $teamId, $candidates);
+            } catch (Throwable $e) {
+                $this->errors[] = "Équipe {$teamId} : ".$e->getMessage();
+                Log::warning('RosterHarvester : équipe ignorée pour la prochaine passe', [
+                    'team_id' => $teamId,
+                    'error' => $e->getMessage(),
+                ]);
+
                 continue;
             }
 
-            foreach (($team['players'] ?? []) as $player) {
-                $this->pushCandidate($candidates, $player);
-            }
-
-            // Historique des transferts (toutes pages).
-            $page = 1;
-            do {
-                $payload = $this->client->transfersPage($teamId, $page);
-
-                foreach (($payload['data'] ?? []) as $transfer) {
-                    $who = $transfer['who'] ?? null;
-                    if (is_array($who)) {
-                        $this->pushCandidate($candidates, $who);
-                    }
-                }
-
-                if ($page >= $this->client->lastPage($payload)) {
-                    break;
-                }
-                $page++;
-            } while (true);
-
             if ($progress !== null) {
-                $progress($team);
+                $progress(['id' => $teamId]);
             }
         }
 
         $inserted = $this->players->insertCandidates(array_values($candidates));
 
         return $inserted;
+    }
+
+    /**
+     * Erreurs de la dernière exécution (affichage dans les commandes).
+     *
+     * @return list<string>
+     */
+    public function errors(): array
+    {
+        return $this->errors;
+    }
+
+    /**
+     * Récupère le roster actuel et l'historique des transferts d'une équipe.
+     *
+     * @param  array<int, array<string, mixed>>  $candidates  mis à jour par référence
+     */
+    private function harvestTeam(int $teamId, array &$candidates): void
+    {
+        $team = $this->client->team($teamId);
+        if ($team === []) {
+            return;
+        }
+
+        foreach (($team['players'] ?? []) as $player) {
+            $this->pushCandidate($candidates, $player);
+        }
+
+        // Historique des transferts (toutes pages).
+        $page = 1;
+        do {
+            $payload = $this->client->transfersPage($teamId, $page);
+
+            foreach (($payload['data'] ?? []) as $transfer) {
+                $who = $transfer['who'] ?? null;
+                if (is_array($who)) {
+                    $this->pushCandidate($candidates, $who);
+                }
+            }
+
+            if ($page >= $this->client->lastPage($payload)) {
+                break;
+            }
+            $page++;
+        } while (true);
     }
 
     /**

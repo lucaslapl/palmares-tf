@@ -66,4 +66,52 @@ final class TableImporterTest extends TestCase
         $season = (new SeasonsRepository)->findByCompetitionId(971);
         $this->assertNotNull($season->ingested_at);
     }
+
+    #[Test]
+    public function isolated_season_failure_does_not_stop_the_batch(): void
+    {
+        // Échec rapide (1 seule tentative) pour rester dans un temps de test court.
+        config()->set('palmares.etf2l.max_attempts', 1);
+        config()->set('palmares.etf2l.backoffs', [0]);
+
+        foreach ([971 => '6v6 Season 50 (Autumn 2025)', 999 => 'Saison bidon'] as $comp => $name) {
+            DB::table('seasons')->insert([
+                'etf2l_competition_id' => $comp,
+                'name' => $name,
+                'category' => '6v6 Season',
+                'format' => '6s',
+                'archived' => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        Http::fake([
+            '*/competition/971/tables*' => Http::response($this->fixture('competition_971_tables')),
+            // Panne isolée sur la comp 999 : 500 persistante après les retries.
+            '*/competition/999/tables*' => Http::response('', 500),
+        ]);
+
+        $importer = new TableImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+            new TeamsRepository,
+        );
+
+        $count = $importer->run();
+
+        // La bonne saison est ingérée ; la défaillante reste pending + signalée.
+        $this->assertGreaterThan(0, $count);
+        $this->assertNotNull((new SeasonsRepository)->findByCompetitionId(971)->ingested_at);
+        $this->assertNull((new SeasonsRepository)->findByCompetitionId(999)->ingested_at);
+        $this->assertCount(1, $importer->errors());
+    }
+
+    protected function tearDown(): void
+    {
+        config()->set('palmares.etf2l.max_attempts', 5);
+        config()->set('palmares.etf2l.backoffs', [0, 2, 10, 30, 60]);
+
+        parent::tearDown();
+    }
 }

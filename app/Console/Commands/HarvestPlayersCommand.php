@@ -24,6 +24,14 @@ final class HarvestPlayersCommand extends Command
         $this->info("Terminé : {$inserted} joueur(s) nouvellement découvert(s).");
         $this->line('Pensez à lancer app:compute-palmares pour calculer leurs palmarès.');
 
+        $errors = $harvester->errors();
+        if ($errors !== []) {
+            $this->warn(count($errors).' équipe(s) en échec (retentées à la prochaine passe) :');
+            foreach (array_slice($errors, 0, 10) as $error) {
+                $this->line('  - '.$error);
+            }
+        }
+
         return self::SUCCESS;
     }
 }

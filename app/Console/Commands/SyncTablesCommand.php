@@ -30,6 +30,14 @@ final class SyncTablesCommand extends Command
         $pending = count($seasons->pendingTables());
         $this->info("Terminé : {$count} ligne(s) de table ingérée(s). Reste {$pending} saison(s) à traiter.");
 
+        $errors = $importer->errors();
+        if ($errors !== []) {
+            $this->warn(count($errors).' saison(s) en échec (retentées à la prochaine passe) :');
+            foreach (array_slice($errors, 0, 10) as $error) {
+                $this->line('  - '.$error);
+            }
+        }
+
         return self::SUCCESS;
     }
 }
