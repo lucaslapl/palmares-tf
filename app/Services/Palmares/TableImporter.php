@@ -1,0 +1,101 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Palmares;
+
+use App\Models\SeasonsRepository;
+use App\Models\TeamsRepository;
+use App\Services\Etf2l\Etf2lApiClient;
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Importe les tables de classement final des saisons (app:sync-tables).
+ *
+ * Chaque entrée de table fournit le podium d'une division via le champ "ach"
+ * (1 = or, 2 = argent, 3 = bronze). Les équipes sont enregistrées au passage
+ * afin de servir de source pour la récolte des joueurs.
+ */
+final class TableImporter
+{
+    public function __construct(
+        private readonly Etf2lApiClient $client,
+        private readonly SeasonsRepository $seasons,
+        private readonly TeamsRepository $teams,
+    ) {}
+
+    /**
+     * @return int nombre de lignes de table insérées / mises à jour
+     */
+    public function run(bool $force = false, ?callable $progress = null): int
+    {
+        $pending = $force ? $this->seasons->listAll() : $this->seasons->pendingTables();
+        $medals = (array) config('palmares.medals');
+        $ingested = 0;
+
+        foreach ($pending as $season) {
+            $tables = $this->client->competitionTables((int) $season->etf2l_competition_id);
+            $rows = [];
+
+            foreach ($tables as $divisionName => $entries) {
+                foreach ($entries as $entry) {
+                    $etf2lTeamId = (int) ($entry['id'] ?? 0);
+                    if ($etf2lTeamId <= 0) {
+                        continue;
+                    }
+
+                    $teamId = $this->teams->insertOrIgnore([
+                        'etf2l_id' => $etf2lTeamId,
+                        'name' => (string) ($entry['name'] ?? ''),
+                        'country' => (string) ($entry['country'] ?? ''),
+                    ]);
+
+                    $ach = $entry['ach'] ?? null;
+                    $placement = $this->normalizeAch($ach);
+                    $medal = $placement !== null ? (string) ($medals[$placement] ?? '') : '';
+
+                    $rows[] = [
+                        'season_id' => (int) $season->id,
+                        'team_id' => $teamId,
+                        'division_name' => (string) ($entry['division_name'] ?? $divisionName),
+                        'ach' => $placement,
+                        'medal' => $medal !== '' ? $medal : null,
+                    ];
+                }
+            }
+
+            if ($rows !== []) {
+                DB::table('season_teams')->upsert(
+                    $rows,
+                    ['season_id', 'team_id'],
+                    ['division_name', 'ach', 'medal'],
+                );
+                $ingested += count($rows);
+            }
+
+            $this->seasons->markTableIngested((int) $season->id);
+
+            if ($progress !== null) {
+                $progress($season, count($rows));
+            }
+        }
+
+        return $ingested;
+    }
+
+    /**
+     * Le champ "ach" de l'API peut être un entier (1|2|3) ; tout le reste est ignoré.
+     */
+    private function normalizeAch(mixed $ach): ?int
+    {
+        if (is_int($ach)) {
+            return $ach >= 1 && $ach <= 3 ? $ach : null;
+        }
+
+        if (is_string($ach) && ctype_digit($ach)) {
+            return $this->normalizeAch((int) $ach);
+        }
+
+        return null;
+    }
+}

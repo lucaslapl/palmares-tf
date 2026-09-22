@@ -1,0 +1,20 @@
+[Unit]
+Description=palmares.tf — backfill continu du palmarès (calcul initial en production)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/srv/palmares
+ExecStart=/srv/palmares/bin/backfill.sh
+Restart=always
+RestartSec=10
+StandardOutput=append:/srv/palmares/storage/logs/backfill.log
+StandardError=append:/srv/palmares/storage/logs/backfill.log
+
+# Installation : sudo cp deploy/palmares-backfill.service /etc/systemd/system/ &&
+# sudo systemctl daemon-reload && sudo systemctl enable --now palmares-backfill
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+.git
+.vscode
+storage/logs
+storage/app/palmares
+database/database.sqlite
+vendor
+node_modules
+public/build
+tests/Fixtures
+.env

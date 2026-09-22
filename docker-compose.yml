@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    # Port 8000 côté hôte pour coller à APP_URL réglé dans .env.
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www/html
+    environment:
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/html/database/database.sqlite
+    command: php artisan serve --host=0.0.0.0 --port=8000
+
+  test:
+    build: .
+    volumes:
+      - .:/var/www/html
+    command: composer test
