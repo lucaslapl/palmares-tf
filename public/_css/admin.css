@@ -1,0 +1,175 @@
+/* ---------- Panel admin ---------- */
+
+.admin-tag {
+    font-style: normal;
+    font-size: .62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: #fff;
+    background: var(--accent-strong);
+    border-radius: 20px;
+    padding: 2px 8px;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.admin-main { padding-bottom: 60px; }
+
+.monospace {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .88rem;
+}
+
+.inline-form { display: inline; }
+.link-button {
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+}
+.link-button:hover { color: var(--text); text-decoration: underline; }
+
+/* ---------- KPI cards ---------- */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+}
+.api-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+
+.kpi {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+}
+.kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 2px;
+}
+.kpi-label {
+    color: var(--muted);
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+.kpi-sub { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+.kpi-sub.ok { color: var(--accent); }
+.kpi-sub.warn { color: var(--bronze); }
+
+.kpi-medals .kpi-value { display: flex; gap: 10px; }
+.kpi-medals .medal { font-size: 1.25rem; }
+
+/* ---------- Status badges ---------- */
+.badge-ok { color: #7ee2a8; border-color: rgba(126, 226, 168, .4); background: rgba(126, 226, 168, .08); }
+.badge-warn { color: var(--bronze); border-color: rgba(205, 127, 79, .5); background: rgba(205, 127, 79, .1); }
+.badge-error { color: #ff8f8f; border-color: rgba(255, 143, 143, .5); background: rgba(255, 143, 143, .1); }
+.badge-running { color: var(--accent); border-color: rgba(110, 168, 255, .45); background: rgba(110, 168, 255, .08); }
+.badge-muted { color: var(--muted); }
+
+/* ---------- Data quality ---------- */
+.quality-list {
+    list-style: none;
+    margin: 0;
+    padding: 10px 18px 14px;
+}
+.quality-list li {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--panel-edge);
+}
+.quality-list li:last-child { border-bottom: 0; }
+.quality-count {
+    min-width: 64px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+.quality-count.ok { color: var(--muted); }
+.quality-count.warn { color: var(--bronze); }
+.quality-label { color: var(--text); }
+
+/* ---------- Logs ---------- */
+.log-block {
+    padding: 8px 4px;
+    max-height: 520px;
+    overflow-y: auto;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .82rem;
+    line-height: 1.6;
+}
+.log-line { padding: 3px 14px; white-space: pre-wrap; word-break: break-word; border-bottom: 1px solid rgba(255, 255, 255, .03); }
+.log-line:last-child { border-bottom: 0; }
+.log-severity {
+    display: inline-block;
+    min-width: 54px;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: .72rem;
+    margin-right: 8px;
+}
+.log-message { color: var(--text); }
+.log-info .log-severity { color: var(--accent); }
+.log-debug .log-severity { color: var(--muted); }
+.log-notice .log-severity { color: var(--accent); }
+.log-warning .log-severity { color: var(--bronze); }
+.log-warning .log-message { color: var(--bronze); }
+.log-error .log-severity,
+.log-critical .log-severity,
+.log-alert .log-severity,
+.log-emergency .log-severity { color: #ff8f8f; }
+.log-error .log-message,
+.log-critical .log-message,
+.log-alert .log-message,
+.log-emergency .log-message { color: #ff8f8f; }
+
+/* ---------- Login ---------- */
+.admin-login-wrap { display: grid; place-items: center; }
+.admin-login {
+    width: min(420px, 94vw);
+    padding: 28px;
+    margin: 14vh 0 0;
+}
+.admin-login-form { display: grid; gap: 14px; }
+.admin-login-form label {
+    display: grid;
+    gap: 6px;
+    color: var(--muted);
+    font-size: .85rem;
+}
+.admin-login-form input {
+    padding: 11px 12px;
+    border-radius: var(--radius);
+    border: 1px solid var(--panel-edge);
+    background: var(--bg-alt);
+    color: var(--text);
+    font-size: 1rem;
+}
+.admin-login-form input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.admin-login-form .btn {
+    padding: 11px 0;
+    border: 0;
+    border-radius: var(--radius);
+    background: var(--accent-strong);
+    color: #fff;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+}
+.admin-login-form .btn:hover { background: var(--accent); }
+
+.alert {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    margin-bottom: 14px;
+    font-size: .9rem;
+}
+.alert-error { background: rgba(255, 143, 143, .12); border: 1px solid rgba(255, 143, 143, .45); color: #ffb3b3; }

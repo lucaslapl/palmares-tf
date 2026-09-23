@@ -74,3 +74,79 @@ if (! function_exists('palmares_asset')) {
         return asset($path).$version;
     }
 }
+
+if (! function_exists('admin_age')) {
+    /**
+     * Délai textuel depuis un timestamp Unix, pour le panel admin (UI en
+     * anglais) : « 3 h ago », « never » si nul ou nul.
+     */
+    function admin_age(?int $timestamp): string
+    {
+        if ($timestamp === null || $timestamp <= 0) {
+            return 'never';
+        }
+
+        return admin_age_ago(max(0, time() - $timestamp));
+    }
+}
+
+if (! function_exists('admin_age_ago')) {
+    /**
+     * Durée textuelle écoulée (secondes absolues), ex. « 12 min ago ».
+     */
+    function admin_age_ago(int $seconds): string
+    {
+        return match (true) {
+            $seconds < 60 => $seconds.' s ago',
+            $seconds < 3600 => intdiv($seconds, 60).' min ago',
+            $seconds < 86400 => intdiv($seconds, 3600).' h ago',
+            default => intdiv($seconds, 86400).' d ago',
+        };
+    }
+}
+
+if (! function_exists('admin_duration')) {
+    /**
+     * Durée entre deux timestamps (secondes), ex. « 42 s ».
+     */
+    function admin_duration(int $from, int $to): string
+    {
+        $seconds = max(0, $to - $from);
+
+        return match (true) {
+            $seconds < 60 => $seconds.' s',
+            $seconds < 3600 => intdiv($seconds, 60).' min',
+            default => intdiv($seconds, 3600).' h',
+        };
+    }
+}
+
+if (! function_exists('admin_interval')) {
+    /**
+     * Intervalle de planification lisible, ex. « every 6 h ».
+     */
+    function admin_interval(int $seconds): string
+    {
+        return match (true) {
+            $seconds < 3600 => 'every '.max(1, intdiv($seconds, 60)).' min',
+            default => 'every '.intdiv($seconds, 3600).' h',
+        };
+    }
+}
+
+if (! function_exists('admin_bytes')) {
+    /**
+     * Taille lisible (octets), ex. « 1.5 MB ».
+     */
+    function admin_bytes(int $bytes): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB'];
+        $i = 0;
+
+        for ($value = (float) $bytes; $value >= 1024 && $i < count($units) - 1; $i++) {
+            $value /= 1024;
+        }
+
+        return ($i === 0 ? (string) (int) $value : number_format($value, 1)).' '.$units[$i];
+    }
+}
