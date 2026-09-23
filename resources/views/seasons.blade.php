@@ -10,7 +10,7 @@
     <section class="panel">
         <div class="panel-head">
             <h2>{{ $formats[$format]['label'] ?? $format }}</h2>
-            <span class="muted">{{ count($seasons) }} seasons</span>
+            <span class="muted">{{ count($seasons) }} results</span>
         </div>
         <ul class="season-list">
             @foreach ($seasons as $season)
