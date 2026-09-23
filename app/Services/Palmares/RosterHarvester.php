@@ -39,9 +39,9 @@ final class RosterHarvester
      */
     public function run(?callable $progress = null, int $limit = 0): int
     {
-        $candidates = [];
         $this->errors = [];
         $processed = 0;
+        $inserted = 0;
 
         foreach ($this->teams->allEtf2lIds() as $teamId) {
             if ($limit > 0 && $processed >= $limit) {
@@ -51,7 +51,8 @@ final class RosterHarvester
             $teamId = (int) $teamId;
 
             try {
-                $this->harvestTeam($teamId, $candidates);
+                $teamCandidates = [];
+                $this->harvestTeam($teamId, $teamCandidates);
             } catch (Throwable $e) {
                 $this->errors[] = "Équipe {$teamId} : ".$e->getMessage();
                 Log::warning('RosterHarvester : équipe ignorée pour la prochaine passe', [
@@ -62,13 +63,16 @@ final class RosterHarvester
                 continue;
             }
 
+            // Insertion au fil de l'eau : l'unicité de etf2l_id (insertOrIgnore)
+            // évite les doublons sans retenir l'ensemble des candidats en mémoire
+            // (le harvest échouait par épuisement mémoire avec ~500 équipes).
+            $inserted += $this->players->insertCandidates(array_values($teamCandidates));
+
             if ($progress !== null) {
                 $team = $this->teams->findByEtf2lId($teamId);
                 $progress(['id' => $teamId, 'name' => $team?->name]);
             }
         }
-
-        $inserted = $this->players->insertCandidates(array_values($candidates));
 
         return $inserted;
     }

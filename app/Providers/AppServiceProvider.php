@@ -41,7 +41,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(ScheduledTaskFailed::class, function (ScheduledTaskFailed $event): void {
             Log::error('Tâche planifiée en échec : '.$event->task->getSummaryForDisplay(), [
                 'command' => $event->task->command,
-                'error' => $event->error->getMessage(),
+                'error' => $event->exception->getMessage(),
             ]);
         });
 
