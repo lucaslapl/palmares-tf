@@ -38,6 +38,32 @@ final class ComputePalmaresCommandTest extends TestCase
     }
 
     #[Test]
+    public function skips_silently_with_code_0_when_another_run_holds_the_lock(): void
+    {
+        // Une autre exécution (backfill systemd, scheduler) détient le verrou :
+        // on skipe avec un message d'information et un code 0, sans échouer.
+        $lock = fopen(palmares_data_path('compute-palmares.lock'), 'c');
+        flock($lock, LOCK_EX);
+
+        DB::table('players')->insert([
+            'etf2l_id' => 70031,
+            'name' => 'kaptain',
+            'country' => 'European',
+        ]);
+
+        Http::fake([]);
+
+        $this->artisan('app:compute-palmares')
+            ->expectsOutputToContain('Calcul du palmarès déjà en cours')
+            ->assertExitCode(0);
+
+        Http::assertSentCount(0);
+
+        flock($lock, LOCK_UN);
+        fclose($lock);
+    }
+
+    #[Test]
     public function processes_pending_players_then_continues(): void
     {
         DB::table('players')->insert([

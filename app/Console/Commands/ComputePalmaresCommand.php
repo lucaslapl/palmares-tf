@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Palmares\ComputePalmaresService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 final class ComputePalmaresCommand extends Command
 {
@@ -30,13 +31,26 @@ final class ComputePalmaresCommand extends Command
 
         $this->info('Calcul des palmarès en cours…');
 
-        $stats = $service->runBackfill(
-            progress: function (object $player): void {
-                $this->line('  + '.($player->name ?? $player->etf2l_id).' ('.$player->etf2l_id.')');
-            },
-            limit: $limit,
-            maxRuntimeS: $runtime,
-        );
+        try {
+            $stats = $service->runBackfill(
+                progress: function (object $player): void {
+                    $this->line('  + '.($player->name ?? $player->etf2l_id).' ('.$player->etf2l_id.')');
+                },
+                limit: $limit,
+                maxRuntimeS: $runtime,
+            );
+        } catch (RuntimeException $e) {
+            // Contention du verrou : une autre exécution (backfill systemd,
+            // passe précédente) travaille déjà. Ce n'est pas un échec : on
+            // skipe silencieusement pour que le scheduler ne flagge rien.
+            $this->info($e->getMessage());
+
+            Log::info('app:compute-palmares : une autre exécution est active, cette passe est ignorée.', [
+                'detail' => $e->getMessage(),
+            ]);
+
+            return self::SUCCESS;
+        }
 
         $this->info("Calculé : {$stats['computed']} — en échec : {$stats['failed']}");
         Log::info('app:compute-palmares terminée', [

@@ -116,14 +116,31 @@ final class ComputePalmaresService
      */
     public function runBackfill(?callable $progress = null, int $limit = 0, int $maxRuntimeS = 1500): array
     {
-        $lock = fopen(palmares_data_path('compute-palmares.lock'), 'c');
-        if ($lock === false || ! flock($lock, LOCK_EX | LOCK_NB)) {
-            if (is_resource($lock)) {
+        $lockPath = palmares_data_path('compute-palmares.lock');
+        $lock = fopen($lockPath, 'c');
+        $opened = is_resource($lock);
+        if ($lock === false || ! $opened || ! flock($lock, LOCK_EX | LOCK_NB)) {
+            if ($opened) {
                 fclose($lock);
             }
 
-            throw new RuntimeException('Calcul du palmarès déjà en cours (une autre exécution est active).');
+            $message = 'Calcul du palmarès déjà en cours (une autre exécution est active).';
+            $message .= $opened ? $this->describeLockHolder($lockPath) : ' Détenteur inconnu (verrou non lisible).';
+
+            throw new RuntimeException($message);
         }
+
+        // Le détenteur grave son PID et son horodatage sous verrou : quand une
+        // autre passe échoue à acquérir le verrou, on sait exactement qui
+        // travaille et depuis combien de temps (diagnostic en production).
+        ftruncate($lock, 0);
+        fprintf(
+            $lock,
+            '%d %d',
+            getmypid(),
+            time(),
+        );
+        fflush($lock);
 
         try {
             return $this->doBackfill($progress, $limit, $maxRuntimeS);
@@ -131,6 +148,22 @@ final class ComputePalmaresService
             flock($lock, LOCK_UN);
             fclose($lock);
         }
+    }
+
+    /**
+     * Décrit le détenteur actuel du verrou (PID + durée de détention), ou un
+     * message « inconnu » si le fichier n'est pas encore renseigné.
+     */
+    private function describeLockHolder(string $lockPath): string
+    {
+        $raw = is_file($lockPath) ? (string) file_get_contents($lockPath) : '';
+        $parts = explode(' ', trim($raw));
+        $pid = $parts[0] ?? '';
+        $age = isset($parts[1]) && ctype_digit($parts[1])
+            ? ', depuis '.max(0, time() - (int) $parts[1]).' s'
+            : ' (durée inconnue)';
+
+        return $pid !== '' ? ' Détenteur : PID '.$pid.$age.'.' : ' Détenteur inconnu.';
     }
 
     /**
