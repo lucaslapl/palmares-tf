@@ -129,6 +129,7 @@ final class PalmaresRepository
                 'players.country',
                 'players.steam_id64',
                 'players.avatar',
+                'players.ban_until',
                 DB::raw('SUM(CASE palmares.medal WHEN \'gold\' THEN 1 ELSE 0 END) AS golds'),
                 DB::raw('SUM(CASE palmares.medal WHEN \'silver\' THEN 1 ELSE 0 END) AS silvers'),
                 DB::raw('SUM(CASE palmares.medal WHEN \'bronze\' THEN 1 ELSE 0 END) AS bronzes'),
@@ -156,6 +157,7 @@ final class PalmaresRepository
                 'players.country',
                 'players.steam_id64',
                 'players.avatar',
+                'players.ban_until',
             ])
             ->get()
             ->all();

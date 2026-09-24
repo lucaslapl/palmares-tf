@@ -206,6 +206,14 @@ main.container { flex: 1; padding: 28px 0 48px; }
     letter-spacing: .4px;
 }
 
+/* Ban ETF2L en cours (leaderboard) */
+.badge-ban {
+    margin-left: 8px;
+    color: #ff6b6b;
+    background: rgba(255, 107, 107, .12);
+    border-color: rgba(255, 107, 107, .5);
+}
+
 /* ---------- Flags ---------- */
 .flag {
     width: 20px;

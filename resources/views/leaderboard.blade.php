@@ -37,6 +37,9 @@
                 @else
                     {{ $player['name'] }}
                 @endif
+                @if (! empty($player['banned']))
+                    <span class="badge badge-ban" title="ETF2L ban until {{ \Illuminate\Support\Carbon::createFromTimestamp($player['ban_until'])->toDayDateTimeString() }}">Banned</span>
+                @endif
             </td>
             <td class="muted">@include('partials.flag', ['country' => $player['country']])</td>
             <td class="num strong">{{ number_format($player['points']) }}</td>

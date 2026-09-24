@@ -14,6 +14,8 @@ final class PlayersRepository
 {
     /**
      * Insère ou met à jour un joueur depuis le payload /player/{id} de l'API.
+     * Les bans ETF2L (tableau "bans" du payload) sont réduits à la date de
+     * fin la plus lointaine : un ban actif est un ban_until > now().
      *
      * @param  array<string, mixed>  $player
      */
@@ -27,6 +29,7 @@ final class PlayersRepository
         $steam = $player['steam'] ?? null;
         $steamId64 = is_array($steam) ? (string) ($steam['id64'] ?? '') : '';
         $avatar = is_array($steam) ? (string) ($steam['avatar'] ?? '') : '';
+        $banUntil = $this->latestBanEnd($player['bans'] ?? null);
 
         DB::table('players')->upsert(
             [[
@@ -35,11 +38,35 @@ final class PlayersRepository
                 'country' => (string) ($player['country'] ?? ''),
                 'steam_id64' => $steamId64 !== '' ? $steamId64 : null,
                 'avatar' => $avatar !== '' ? $avatar : null,
+                'ban_until' => $banUntil,
                 'updated_at' => now(),
             ]],
             ['etf2l_id'],
-            ['name', 'country', 'steam_id64', 'avatar', 'updated_at'],
+            ['name', 'country', 'steam_id64', 'avatar', 'ban_until', 'updated_at'],
         );
+    }
+
+    /**
+     * Date de fin la plus lointaine parmi les bans d'un payload /player/{id}.
+     * Renvoie null si le joueur n'a jamais été banni.
+     *
+     * @param  mixed  $bans  tableau {start, end, reason} ou null
+     */
+    private function latestBanEnd(mixed $bans): ?int
+    {
+        if (! is_array($bans)) {
+            return null;
+        }
+
+        $latest = null;
+        foreach ($bans as $ban) {
+            $end = is_array($ban) ? ($ban['end'] ?? null) : null;
+            if (is_numeric($end) && ($latest === null || (int) $end > $latest)) {
+                $latest = (int) $end;
+            }
+        }
+
+        return $latest;
     }
 
     /**

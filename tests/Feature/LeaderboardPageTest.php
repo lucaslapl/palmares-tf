@@ -22,7 +22,7 @@ final class LeaderboardPageTest extends TestCase
 
         $this->useIsolatedDataDir();
 
-        DB::table('players')->insert(['etf2l_id' => 1, 'name' => 'Alpha Player', 'country' => 'AU']);
+        DB::table('players')->insert(['etf2l_id' => 1, 'name' => 'Alpha Player', 'country' => 'AU', 'ban_until' => time() + 86400]);
         DB::table('players')->insert(['etf2l_id' => 2, 'name' => 'Beta Player', 'country' => 'GB']);
 
         DB::table('palmares')->insert([[
@@ -46,7 +46,9 @@ final class LeaderboardPageTest extends TestCase
         $this->get('/leaderboard')
             ->assertOk()
             ->assertSee('Alpha Player')
-            ->assertSee('Beta Player');
+            ->assertSee('Beta Player')
+            // Alpha a un ban ETF2L actif : badge visible.
+            ->assertSee('Banned');
     }
 
     #[Test]

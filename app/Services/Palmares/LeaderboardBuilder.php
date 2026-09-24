@@ -53,13 +53,19 @@ final class LeaderboardBuilder
     {
         $rows = $this->palmares->aggregateByPlayer($format);
 
-        $players = array_map(function (object $row): array {
+        $now = time();
+
+        $players = array_map(function (object $row) use ($now): array {
+            $banUntil = $row->ban_until !== null ? (int) $row->ban_until : null;
+
             return [
                 'etf2l_id' => $row->etf2l_id !== null ? (int) $row->etf2l_id : 0,
                 'name' => (string) $row->name,
                 'country' => $row->country !== null ? (string) $row->country : '',
                 'steam_id64' => $row->steam_id64 !== null ? (string) $row->steam_id64 : '',
                 'avatar' => $row->avatar !== null ? (string) $row->avatar : '',
+                'ban_until' => $banUntil,
+                'banned' => $banUntil !== null && $banUntil > $now,
                 'points' => (int) $row->points,
                 'golds' => (int) $row->golds,
                 'silvers' => (int) $row->silvers,
