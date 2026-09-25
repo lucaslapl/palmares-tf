@@ -28,6 +28,7 @@ final class PlayerPageTest extends TestCase
             'country' => 'European',
             'steam_id64' => '76561198033727092',
             'avatar' => 'https://avatars.example/kaptain.jpg',
+            'ban_until' => time() + 86400,
             'computed_at' => time(),
         ]);
 
@@ -74,6 +75,15 @@ final class PlayerPageTest extends TestCase
             ->assertSee('Witness Gaming')
             ->assertSee('Gold')
             ->assertSee('https://steamcommunity.com/profiles/76561198033727092');
+    }
+
+    #[Test]
+    public function profile_shows_ban_badge_when_banned(): void
+    {
+        // Le joueur a un ban ETF2L actif : le badge doit apparaître à côté du nom.
+        $this->get('/players/'.self::PLAYER_ID)
+            ->assertOk()
+            ->assertSee('Banned');
     }
 
     #[Test]

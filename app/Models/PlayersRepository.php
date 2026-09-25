@@ -116,6 +116,20 @@ final class PlayersRepository
     }
 
     /**
+     * Repasse tous les joueurs en attente de recalcul (computed_at = NULL).
+     * Utilisé pour relancer un passage complet, ex. après l'introduction d'une
+     * nouvelle donnée (bans ETF2L) que seul un re-harvest du profil propage.
+     *
+     * @return int nombre de joueurs réarmés
+     */
+    public function resetComputed(): int
+    {
+        return DB::table('players')
+            ->whereNotNull('computed_at')
+            ->update(['computed_at' => null, 'updated_at' => now()]);
+    }
+
+    /**
      * Nombre de joueurs dont le palmarès n'a jamais été calculé.
      *
      * Contrairement à pending(), on ne considère que computed_at NULL : les

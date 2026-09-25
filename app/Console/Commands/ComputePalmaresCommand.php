@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\PlayersRepository;
 use App\Services\Palmares\ComputePalmaresService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +15,12 @@ final class ComputePalmaresCommand extends Command
     protected $signature = 'app:compute-palmares
         {--limit= : Nombre maximum de joueurs à traiter (0 = pas de limite)}
         {--runtime=1500 : Durée maximale d\'exécution en secondes}
+        {--force : Réarme tous les joueurs (recalcul complet) avant la tranche}
         {--exit-on-empty : Sort avec le code 4 quand plus aucun joueur n\'est en attente (usage backfill systemd)}';
 
     protected $description = 'Calcule le palmarès des joueurs en attente (avec cache et throttling API)';
 
-    public function handle(ComputePalmaresService $service): int
+    public function handle(ComputePalmaresService $service, PlayersRepository $players): int
     {
         if ($this->option('exit-on-empty') && ! $service->hasPendingPlayers()) {
             $this->info('Aucun joueur en attente : backfill terminé.');
@@ -28,6 +30,12 @@ final class ComputePalmaresCommand extends Command
 
         $limit = (int) max(0, (int) $this->option('limit'));
         $runtime = (int) max(1, (int) $this->option('runtime'));
+        $force = (bool) $this->option('force');
+
+        if ($force) {
+            $reset = $players->resetComputed();
+            $this->info("Réarmé {$reset} joueur(s) pour recalcul complet (--force).");
+        }
 
         $this->info('Calcul des palmarès en cours…');
 

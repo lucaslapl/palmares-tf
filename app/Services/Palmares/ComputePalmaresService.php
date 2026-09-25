@@ -91,6 +91,15 @@ final class ComputePalmaresService
             if ($player === null) {
                 return [];
             }
+        } elseif ($this->players->isStale($player)) {
+            // Profil obsolète : on rafraîchit aussi le profil (et donc les bans
+            // ETF2L), pas seulement le palmarès. Sans cela, les joueurs déjà en
+            // base ne verraient jamais leur statut de ban mis à jour.
+            $api = $this->client->player($etf2lPlayerId);
+            if ($api !== []) {
+                $this->players->upsertFromApi($api);
+                $player = $this->players->findByEtf2lId($etf2lPlayerId) ?? $player;
+            }
         }
 
         $entries = $this->computeEntries($etf2lPlayerId);

@@ -8,7 +8,12 @@
         <img class="avatar" src="{{ $player->avatar }}" alt="" loading="lazy">
     @endif
     <div class="player-identity">
-        <h1 class="page-title">{{ $player->name }}</h1>
+        <div class="player-title">
+            <h1 class="page-title">{{ $player->name }}</h1>
+            @if (! empty($player->ban_until) && $player->ban_until > time())
+                <span class="badge badge-ban" title="ETF2L ban until {{ \Illuminate\Support\Carbon::createFromTimestamp($player->ban_until)->toDayDateTimeString() }}">Banned</span>
+            @endif
+        </div>
         <p class="muted">
             @include('partials.flag', ['country' => $player->country ?? ''])
             @if ($player->etf2l_id)

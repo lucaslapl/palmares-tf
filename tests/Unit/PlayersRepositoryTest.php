@@ -58,4 +58,20 @@ final class PlayersRepositoryTest extends TestCase
         $row = DB::table('players')->where('etf2l_id', 70031)->first();
         $this->assertNull($row->ban_until);
     }
+
+    #[Test]
+    public function reset_computed_reaarms_only_computed_players(): void
+    {
+        $repository = new PlayersRepository;
+
+        DB::table('players')->insert([
+            ['etf2l_id' => 1, 'name' => 'Alpha', 'computed_at' => time()],
+            ['etf2l_id' => 2, 'name' => 'Beta', 'computed_at' => null],
+        ]);
+
+        $this->assertSame(1, $repository->resetComputed());
+
+        $this->assertNull(DB::table('players')->where('etf2l_id', 1)->value('computed_at'));
+        $this->assertNull(DB::table('players')->where('etf2l_id', 2)->value('computed_at'));
+    }
 }

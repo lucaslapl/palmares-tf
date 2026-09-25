@@ -269,6 +269,8 @@ main.container { flex: 1; padding: 28px 0 48px; }
 
 .avatar { width: 88px; height: 88px; border-radius: var(--radius); border: 2px solid var(--panel-edge); }
 .player-identity .page-title { margin-bottom: 4px; }
+.player-title { display: flex; align-items: center; gap: 10px; }
+.player-title .page-title { margin-bottom: 0; }
 
 .stats { display: flex; gap: 10px; }
 .stat {

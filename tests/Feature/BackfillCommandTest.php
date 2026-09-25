@@ -145,6 +145,8 @@ final class BackfillCommandTest extends TestCase
             '*/player/*/results*' => Http::response([
                 'current_page' => 1, 'data' => [], 'last_page' => 1, 'total' => 0,
             ]),
+            // Profil générique pour le re-fetch de computeForPlayer (joueurs stale).
+            '*/player/*' => Http::response(['player' => ['id' => 0, 'name' => '']]),
             '*/competition/*/tables*' => Http::response(['tables' => []]),
         ]);
 

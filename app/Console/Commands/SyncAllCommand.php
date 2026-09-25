@@ -19,14 +19,16 @@ final class SyncAllCommand extends Command
     public function handle(): int
     {
         $chain = ['app:sync-seasons'];
+        $force = (bool) $this->option('force');
 
-        if ($this->option('force')) {
-            $chain[] = 'app:sync-tables --force';
-        } else {
-            $chain[] = 'app:sync-tables';
-        }
+        $chain[] = $force ? 'app:sync-tables --force' : 'app:sync-tables';
 
-        array_push($chain, 'app:harvest-players', 'app:compute-palmares', 'app:generate-json');
+        array_push($chain, 'app:harvest-players');
+
+        // --force réarme aussi les palmarès (recalcul complet des joueurs).
+        $chain[] = $force ? 'app:compute-palmares --force' : 'app:compute-palmares';
+
+        $chain[] = 'app:generate-json';
 
         foreach ($chain as $command) {
             $this->info("==> {$command}");

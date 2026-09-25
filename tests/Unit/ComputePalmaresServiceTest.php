@@ -36,6 +36,7 @@ final class ComputePalmaresServiceTest extends TestCase
     {
         Http::fake([
             '*/player/'.self::PLAYER.'/results*' => Http::response($this->season50Results()),
+            '*/player/'.self::PLAYER => Http::response($this->profileResponse()),
             '*/competition/971/tables*' => Http::response($this->fixture('competition_971_tables')),
             '*/competition/*' => Http::response(['tables' => []]),
         ]);
@@ -77,6 +78,7 @@ final class ComputePalmaresServiceTest extends TestCase
 
         Http::fake([
             '*/player/'.self::PLAYER.'/results*' => Http::response($results),
+            '*/player/'.self::PLAYER => Http::response($this->profileResponse()),
             '*/competition/971/tables*' => Http::response($this->fixture('competition_971_tables')),
             '*/competition/*' => Http::response(['tables' => []]),
         ]);
@@ -99,6 +101,7 @@ final class ComputePalmaresServiceTest extends TestCase
             '*/player/'.self::PLAYER.'/results*' => Http::response([
                 'current_page' => 1, 'data' => [], 'last_page' => 1, 'total' => 0,
             ]),
+            '*/player/'.self::PLAYER => Http::response($this->profileResponse()),
         ]);
 
         $entries = $this->service()->computeForPlayer(self::PLAYER);
@@ -120,6 +123,30 @@ final class ComputePalmaresServiceTest extends TestCase
         $this->assertFalse($this->service()->hasPendingPlayers());
     }
 
+    #[Test]
+    public function refreshes_profile_and_bans_for_stale_existing_player(): void
+    {
+        // Le joueur existe déjà en base (le setUp l'insère sans computed_at,
+        // donc stale) : le profil /player/{id} doit être re-fetché à cette
+        // occasion, ce qui propage les bans ETF2L (ban_until) en base.
+        Http::fake([
+            '*/player/'.self::PLAYER.'/results*' => Http::response([
+                'current_page' => 1, 'data' => [], 'last_page' => 1, 'total' => 0,
+            ]),
+            '*/player/'.self::PLAYER => Http::response(['player' => [
+                'id' => self::PLAYER,
+                'name' => 'kaptain',
+                'country' => 'Netherlands',
+                'bans' => [['start' => 1679314388, 'end' => 2117574000, 'reason' => 'Cheating']],
+            ]]),
+        ]);
+
+        $this->service()->computeForPlayer(self::PLAYER);
+
+        $row = (new PlayersRepository)->findByEtf2lId(self::PLAYER);
+        $this->assertSame(2117574000, (int) $row->ban_until);
+    }
+
     private function service(): ComputePalmaresService
     {
         return new ComputePalmaresService(
@@ -127,6 +154,18 @@ final class ComputePalmaresServiceTest extends TestCase
             new PlayersRepository,
             new PalmaresRepository,
         );
+    }
+
+    /**
+     * Prophylaxie /player/{id} : le joueur inséré dans setUp() est stale, donc
+     * computeForPlayer() re-fetche son profil. Les tests ciblant le palmarès
+     * doivent le faker sous peine d'appel réseau réel.
+     *
+     * @return array<string, mixed>
+     */
+    private function profileResponse(): array
+    {
+        return ['player' => ['id' => self::PLAYER, 'name' => 'kaptain', 'country' => 'European']];
     }
 
     /**

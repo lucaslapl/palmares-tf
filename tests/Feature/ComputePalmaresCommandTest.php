@@ -76,9 +76,44 @@ final class ComputePalmaresCommandTest extends TestCase
             '*/player/70031/results*' => Http::response([
                 'current_page' => 1, 'data' => [], 'last_page' => 1, 'total' => 0,
             ]),
+            '*/player/70031' => Http::response(['player' => ['id' => 70031, 'name' => 'kaptain']]),
         ]);
 
         $this->artisan('app:compute-palmares', ['--exit-on-empty' => true])
             ->assertExitCode(0);
+    }
+
+    #[Test]
+    public function force_reaarms_everyone_then_processes(): void
+    {
+        // Le premier joueur est déjà calculé (fraîchement) : sans --force il ne
+        // serait pas retraité. Le second est en attente.
+        DB::table('players')->insert([
+            'etf2l_id' => 70031,
+            'name' => 'kaptain',
+            'country' => 'European',
+            'computed_at' => time(),
+        ]);
+        DB::table('players')->insert([
+            'etf2l_id' => 118844,
+            'name' => 'klassy',
+            'country' => 'Sweden',
+            'computed_at' => null,
+        ]);
+
+        Http::fake([
+            '*/player/*/results*' => Http::response([
+                'current_page' => 1, 'data' => [], 'last_page' => 1, 'total' => 0,
+            ]),
+            '*/player/*' => Http::response(['player' => ['id' => 70031, 'name' => 'kaptain']]),
+        ]);
+
+        $this->artisan('app:compute-palmares', ['--force' => true])
+            ->expectsOutputToContain('Réarmé 1 joueur(s)')
+            ->assertExitCode(0);
+
+        // Les deux joueurs ont été recalculés (computed_at posé).
+        $this->assertNotNull(DB::table('players')->where('etf2l_id', 70031)->value('computed_at'));
+        $this->assertNotNull(DB::table('players')->where('etf2l_id', 118844)->value('computed_at'));
     }
 }
