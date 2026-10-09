@@ -27,14 +27,26 @@ Artisan::command('inspire', function () {
 |
 */
 
+/*
+ * Intervalles choisis en régime écrasé (backfill terminé) :
+ *  - les imports (seasons/tables/harvest) sont en cache 7 j côté client API,
+ *    donc un rythme quotidien suffit ; ils sont décalés de 15 min dans
+ *    l'ordre du pipeline (seasons → tables → harvest) pour ne pas démarrer
+ *    tous à la même minute ;
+ *  - compute-palmares reste à 30 min : c'est lui qui absorbe le flux des
+ *    joueurs qui dépassent la fenêtre de staleness (7 j), et sansOverlapping(180)
+ *    couvre les passes longues ;
+ *  - generate-json à 6 h suit les écritures base des autres tâches.
+ */
+
 $log = storage_path('logs/schedule.log');
 
-Schedule::command('app:sync-seasons')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
+Schedule::command('app:sync-seasons')->daily()->withoutOverlapping()->appendOutputTo($log);
 
-Schedule::command('app:sync-tables')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
+Schedule::command('app:sync-tables')->dailyAt('00:15')->withoutOverlapping()->appendOutputTo($log);
 
-Schedule::command('app:harvest-players')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
+Schedule::command('app:harvest-players')->dailyAt('00:30')->withoutOverlapping()->appendOutputTo($log);
 
 Schedule::command('app:compute-palmares')->everyThirtyMinutes()->withoutOverlapping(180)->appendOutputTo($log);
 
-Schedule::command('app:generate-json')->everyThreeHours()->withoutOverlapping()->appendOutputTo($log);
+Schedule::command('app:generate-json')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
