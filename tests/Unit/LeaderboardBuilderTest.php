@@ -10,6 +10,7 @@ use App\Services\Palmares\LeaderboardBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
+use RuntimeException;
 use Tests\TestCase;
 
 final class LeaderboardBuilderTest extends TestCase
@@ -97,6 +98,45 @@ final class LeaderboardBuilderTest extends TestCase
         $this->assertCount(1, $gamma);
         $this->assertFalse($gamma[0]['banned']);
         $this->assertLessThan(time(), $gamma[0]['ban_until']);
+    }
+
+    #[Test]
+    public function rebuild_failure_preserves_existing_json(): void
+    {
+        $builder = new LeaderboardBuilder(new PalmaresRepository, new PlayersRepository);
+        $builder->rebuildAll();
+
+        // Nom avec de l'UTF-8 invalide : json_encode échoue, le rebuild doit
+        // jeter et laisser le JSON précédent intact (jamais de fichier vide).
+        DB::table('players')->where('etf2l_id', 1)->update(['name' => "Alpha \xB1\x31"]);
+
+        try {
+            $builder->rebuildAll();
+            $this->fail('Le rebuild aurait dû échouer sur un nom UTF-8 invalide.');
+        } catch (RuntimeException) {
+            // Attendu : l'encodage échoue, rien ne doit être écrasé.
+        }
+
+        $all = $this->readJson('leaderboard.json');
+        $this->assertCount(2, $all['players'], 'Le JSON précédent doit rester en place.');
+        $this->assertSame('Alpha Player', $all['players'][1]['name']);
+    }
+
+    #[Test]
+    public function serves_stale_json_when_read_rebuild_fails(): void
+    {
+        $builder = new LeaderboardBuilder(new PalmaresRepository, new PlayersRepository);
+        $builder->rebuildAll();
+
+        // Cache périmé + donnée qui fait échouer le rebuild : la lecture doit
+        // servir le JSON périmé plutôt qu'un leaderboard vide.
+        touch(palmares_data_path('leaderboard.json'), time() - 7200);
+        DB::table('players')->where('etf2l_id', 1)->update(['name' => "Alpha \xB1\x31"]);
+
+        $payload = $builder->readLeaderboard(null);
+
+        $this->assertCount(2, $payload['players'], 'Le JSON périmé doit être servi, pas un tableau vide.');
+        $this->assertSame('Alpha Player', $payload['players'][1]['name']);
     }
 
     /**

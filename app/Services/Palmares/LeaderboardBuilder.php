@@ -6,6 +6,7 @@ namespace App\Services\Palmares;
 
 use App\Models\PalmaresRepository;
 use App\Models\PlayersRepository;
+use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -112,9 +113,15 @@ final class LeaderboardBuilder
      */
     public function readLeaderboard(?string $format = null, int $maxAgeS = 3600): array
     {
+        $file = 'leaderboard'.($format !== null ? '-'.$format : '').'.json';
+
         try {
-            return $this->readOrRebuild('leaderboard'.($format !== null ? '-'.$format : '').'.json', fn (): int => $this->rebuildLeaderboard($format), $maxAgeS);
-        } catch (Throwable) {
+            return $this->readOrRebuild($file, fn (): int => $this->rebuildLeaderboard($format), $maxAgeS);
+        } catch (Throwable $e) {
+            // Dernier recours (verrou indisponible…) : sans ce journal, une
+            // page vide serait indissociable d'un leaderboard réellement vide.
+            Log::error('Lecture du leaderboard impossible', ['file' => $file, 'error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -132,17 +139,31 @@ final class LeaderboardBuilder
     // ---------------------------------------------------------------
 
     /**
+     * Lecture avec régénération si fichier absent/obsolète. Si le rebuild à la
+     * lecture échoue (erreur DB, encodage…), le JSON périmé existant est servi
+     * plutôt qu'une page vide, et l'échec est journalisé pour diagnostic. Le
+     * rebuild programmé (app:generate-json), lui, n'avale pas : la commande
+     * sortira en échec.
+     *
      * @param  callable(): int  $rebuild
      * @return array<string, mixed>
      */
     private function readOrRebuild(string $file, callable $rebuild, int $maxAgeS): array
     {
         $path = palmares_data_path($file);
+        $isStale = static fn (): bool => ! is_file($path) || (time() - (int) filemtime($path)) > $maxAgeS;
 
-        if (! is_file($path) || (time() - (int) filemtime($path)) > $maxAgeS) {
-            return $this->withLock(function () use ($path, $rebuild, $file): array {
-                if (! is_file($path) || (time() - (int) filemtime($path)) > $maxAgeS) {
-                    $rebuild();
+        if ($isStale()) {
+            return $this->withLock(function () use ($isStale, $rebuild, $file): array {
+                if ($isStale()) {
+                    try {
+                        $rebuild();
+                    } catch (Throwable $e) {
+                        Log::warning('Régénération du JSON à la lecture échouée : JSON périmé servi', [
+                            'file' => $file,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                 }
 
                 return $this->readJson($file);
@@ -179,6 +200,13 @@ final class LeaderboardBuilder
 
         $tmp = $dir.'/.'.$file.'.'.bin2hex(random_bytes(4)).'.tmp';
         $content = json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        // Un échec d'encodage (UTF-8 invalide venu de l'API, par ex.) ne doit
+        // jamais remplacer le JSON existant par un fichier vide : on jette
+        // avant d'écrire, l'ancien fichier reste servi.
+        if (! is_string($content)) {
+            throw new RuntimeException("Encodage JSON impossible pour {$file} (données invalides)");
+        }
 
         if (file_put_contents($tmp, $content) === false || ! rename($tmp, $dir.'/'.$file)) {
             @unlink($tmp);
