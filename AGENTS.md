@@ -18,6 +18,12 @@ commentaires sont **en français** ; l'UI du site (et du panel admin) est en **a
   - Assets : `docker compose run --rm test npm run build`
   - Shell : `docker compose run --rm test sh`
 - Base locale SQLite (`database/database.sqlite`), MySQL en production.
+- **Base de référence production** dans `database/reference/` (gitignoré) :
+  `palmares.sql` (dump MySQL/MariaDB complet, ~1 Go) et `schema.sql` (CREATE TABLE
+  extraits). Pour toute nouvelle feature du site qui consomme ou transforme des données
+  métier, utiliser ce dump comme jeu de données réel de référence : y vérifier les
+  schémas, volumes et cas limites (médailles, bans, divisions) et en dériver des extraits
+  de test. Ne jamais le committer, ni remplacer `database/database.sqlite` par ce dump.
 - Secrets du panel admin dans `.env` (jamais dans le code) :
   `ADMIN_ACCESS_TOKEN`, `ADMIN_USERNAME`, `ADMIN_PASSWORD_HASH` (hash bcrypt généré via
   `php artisan app:admin-hash`).
@@ -75,8 +81,8 @@ commentaires sont **en français** ; l'UI du site (et du panel admin) est en **a
 - Tests PHPUnit avec attributes style Pest (`#[Test]`), dans `tests/Unit` et `tests/Feature`,
   fixtures réelles dans `tests/Fixtures/etf2l/`. Toujours `Http::fake()` — aucun appel
   réseau dans les tests.
-- Ne pas committer `storage/app/palmares/`, `database/database.sqlite`, les logs ni les
-  artefacts générés.
+- Ne pas committer `storage/app/palmares/`, `database/database.sqlite`, le dump de
+  référence `database/reference/`, les logs ni les artefacts générés.
 
 ## Commits
 
