@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Models\SeasonGroupRepository;
 use App\Models\SeasonsRepository;
 use App\Services\Etf2l\Etf2lApiClient;
 use App\Services\Palmares\SeasonImporter;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -37,6 +39,7 @@ final class SeasonImporterTest extends TestCase
         $importer = new SeasonImporter(
             new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
             new SeasonsRepository,
+            new SeasonGroupRepository,
         );
 
         $count = $importer->run();
@@ -52,6 +55,44 @@ final class SeasonImporterTest extends TestCase
     }
 
     #[Test]
+    public function groups_divisions_of_a_season_under_one_season_group(): void
+    {
+        $fixture = $this->fixture('competition_list_page1');
+        $fixture['competitions']['last_page'] = 1;
+        $fixture['competitions']['next_page_url'] = null;
+        $fixture['competitions']['current_page'] = 1;
+
+        Http::fake(['*/competition/list*' => Http::response($fixture)]);
+
+        $importer = new SeasonImporter(
+            new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
+            new SeasonsRepository,
+            new SeasonGroupRepository,
+        );
+
+        $importer->run();
+
+        // Chaque saison logique (« 6v6 Season 52 », « Highlander Season 36 »)
+        // a exactement un groupe, et toutes ses divisions y sont rattachées.
+        $ungrouped = DB::table('seasons')->whereNull('season_group_id')->count();
+        $this->assertSame(0, $ungrouped);
+
+        $season52 = DB::table('season_groups')
+            ->where('format', '6s')
+            ->where('season_number', 52)
+            ->first();
+
+        $this->assertNotNull($season52);
+        $this->assertSame('6v6 Season 52', $season52->name);
+
+        $divisions = DB::table('seasons')->where('season_group_id', $season52->id)->pluck('name')->all();
+        $this->assertNotEmpty($divisions);
+        foreach ($divisions as $name) {
+            $this->assertStringContainsString('Season 52', $name);
+        }
+    }
+
+    #[Test]
     public function limit_stops_import_after_the_requested_count(): void
     {
         $fixture = $this->fixture('competition_list_page1');
@@ -64,6 +105,7 @@ final class SeasonImporterTest extends TestCase
         $importer = new SeasonImporter(
             new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
             new SeasonsRepository,
+            new SeasonGroupRepository,
         );
 
         $count = $importer->run(limit: 1);

@@ -6,6 +6,9 @@
 <div class="season-header">
     <p class="muted">{{ $format }} season</p>
     <h1 class="page-title">{{ $season->name }}</h1>
+    @if (isset($competitions) && count($competitions) > 1)
+        <p class="muted">Includes {{ count($competitions) }} divisions</p>
+    @endif
     @if ($season->archived)
         <p>
             <a href="https://etf2l.org/etf2l/archives/{{ $season->etf2l_competition_id }}/" rel="noopener" target="_blank">
@@ -34,22 +37,22 @@
             @foreach ($teams as $team)
             <tr>
                 <td class="num">
-                    @if ($team->ach)
+                    @if (isset($team->ach) && $team->ach)
                         {{ $team->ach }}<sup>{{ ordinal($team->ach) }}</sup>
                     @else
                         <span class="muted">—</span>
                     @endif
                 </td>
                 <td>
-                    @if ($team->etf2l_team_id)
-                        <a href="https://etf2l.org/teams/{{ $team->etf2l_team_id }}/" rel="noopener" target="_blank">{{ $team->name }}</a>
+                    @if (isset($team->etf2l_team_id) && $team->etf2l_team_id)
+                        <a href="https://etf2l.org/teams/{{ $team->etf2l_team_id }}/" rel="noopener" target="_blank">{{ $team->team_name ?? $team->name }}</a>
                     @else
-                        {{ $team->name }}
+                        {{ $team->team_name ?? $team->name }}
                     @endif
                 </td>
                 <td class="muted">@include('partials.flag', ['country' => $team->country ?? ''])</td>
                 <td>
-                    @if ($team->medal)
+                    @if (isset($team->medal) && $team->medal)
                         <span class="medal-badge medal-{{ $team->medal }}">{{ ucfirst($team->medal) }}</span>
                     @else
                         <span class="muted">—</span>

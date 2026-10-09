@@ -24,10 +24,12 @@ final class PalmaresRepository
             $rows = [];
             foreach ($entries as $e) {
                 $seasonId = $this->resolveSeasonId((int) ($e['competition_id'] ?? 0));
+                $seasonGroupId = isset($e['season_group_id']) ? (int) $e['season_group_id'] : null;
 
                 $rows[] = [
                     'player_id' => $playerId,
                     'season_id' => $seasonId,
+                    'season_group_id' => $seasonGroupId,
                     'competition_id' => (int) ($e['competition_id'] ?? 0) > 0 ? (int) $e['competition_id'] : null,
                     'team_id' => $e['team_id'] !== null ? $this->resolveTeamId((int) $e['team_id']) : null,
                     'format' => $e['format'] ?? null,

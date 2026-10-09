@@ -39,30 +39,117 @@ final class SeasonsRepository
     }
 
     /**
-     * Ajoute une compétition si elle n'existe pas déjà (par id ETF2L).
+     * Extrait le numéro de saison depuis un nom de compétition.
+     * Ex: "6v6 Season 52 Division 1" -> 52
+     *     "Highlander Season 32" -> 32
+     *
+     * @return int|null numéro de saison ou null si non trouvé
+     */
+    public static function extractSeasonNumber(string $name): ?int
+    {
+        if (preg_match('/Season\s+(\d+)/i', $name, $matches) === 1) {
+            return (int) $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Génère un identifiant de saison unifiée à partir du format et du numéro.
+     * Ex: format="6s", number=52 -> "6s-52"
+     *
+     * @param  string  $format  Format (6s ou 9v9)
+     * @param  int  $number  Numéro de saison
+     */
+    public static function seasonGroupKey(string $format, int $number): string
+    {
+        return $format.'-'.$number;
+    }
+
+    /**
+     * Extrait l'identifiant de saison unifiée depuis un nom de compétition.
+     * Utilise le format de la compétition et son numéro de saison.
+     *
+     * @param  string  $name  Nom de la compétition
+     * @param  string  $format  Format (6s ou 9v9)
+     */
+    public static function extractSeasonGroupKey(string $name, string $format): ?string
+    {
+        $number = self::extractSeasonNumber($name);
+        if ($number === null) {
+            return null;
+        }
+
+        return self::seasonGroupKey($format, $number);
+    }
+
+    /**
+     * Génère le nom d'affichage d'une saison unifiée.
+     * Ex: format="6s", number=52 -> "6v6 Season 52"
+     *
+     * @param  string  $format  Format (6s ou 9v9)
+     * @param  int  $number  Numéro de saison
+     */
+    public static function seasonGroupName(string $format, int $number): string
+    {
+        $formatLabels = (array) config('palmares.formats');
+        $label = $formatLabels[$format]['label'] ?? ($format === '6s' ? '6v6' : '9v9');
+
+        return $label.' Season '.$number;
+    }
+
+    /**
+     * Ajoute une compétition si elle n'existe pas déjà (par id ETF2L) et
+     * l'associe à son groupe de saison unifié (une saison logique regroupe
+     * toutes les divisions : « 6v6 Season 52 Division 1 », « ... Division 2 »).
      *
      * @param  array<string, mixed>  $competition  item de /competition/list
+     * @return int|null ID du groupe de saison rattaché, ou null
      */
-    public function insertOrIgnoreCompetition(array $competition): void
+    public function insertOrIgnoreCompetition(array $competition, ?SeasonGroupRepository $seasonGroups = null): ?int
     {
         $etf2lId = (int) ($competition['id'] ?? 0);
-        $format = $this->resolveFormat((string) ($competition['type'] ?? ''), (string) ($competition['category'] ?? ''), (string) ($competition['name'] ?? ''));
+        $name = (string) ($competition['name'] ?? '');
+        $format = $this->resolveFormat((string) ($competition['type'] ?? ''), (string) ($competition['category'] ?? ''), $name);
         if ($etf2lId <= 0 || $format === null) {
-            return;
+            return null;
+        }
+
+        // Extraire le numéro de saison et rattacher le groupe de saison unifié.
+        $seasonNumber = self::extractSeasonNumber($name);
+        $groupId = null;
+
+        if ($seasonNumber !== null && $seasonGroups !== null) {
+            $groupId = $seasonGroups->findOrCreate($format, $seasonNumber);
+            $seasonGroups->updateCompetitionRange($groupId, $etf2lId);
         }
 
         DB::table('seasons')->insertOrIgnore([
             'etf2l_competition_id' => $etf2lId,
-            'name' => (string) ($competition['name'] ?? ''),
+            'name' => $name,
             'category' => (string) ($competition['category'] ?? ''),
             'format' => $format,
+            'season_group_id' => $groupId,
             'archived' => (bool) ($competition['archived'] ?? false),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        // Compétition déjà connue sans groupe : on rattache rétroactivement.
+        if ($groupId !== null) {
+            DB::table('seasons')
+                ->where('etf2l_competition_id', $etf2lId)
+                ->whereNull('season_group_id')
+                ->update(['season_group_id' => $groupId, 'updated_at' => now()]);
+        }
+
+        return $groupId;
     }
 
-    private function resolveFormat(string $type, string $category, string $name): ?string
+    /**
+     * Résout le format à partir du type, catégorie et nom de compétition.
+     */
+    public function resolveFormat(string $type, string $category, string $name): ?string
     {
         // La catégorie est l'indicateur fiable : certaines compétitions
         // Highlander ont un type "6v6" erroné dans l'API (ex. HL Season 32).

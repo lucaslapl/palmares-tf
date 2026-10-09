@@ -16,6 +16,9 @@
             @foreach ($seasons as $season)
             <li>
                 <a href="{{ route('seasons.show', ['season' => $season->id]) }}">{{ $season->name }}</a>
+                @if (isset($season->competition_count) && $season->competition_count > 1)
+                    <span class="muted season-divisions" title="{{ $season->competition_count }} divisions">({{ $season->competition_count }} divs)</span>
+                @endif
                 @if ($season->archived)
                     <a class="muted season-archive" href="https://etf2l.org/etf2l/archives/{{ $season->etf2l_competition_id }}/" rel="noopener" target="_blank" title="Archives ETF2L">Archives ↗</a>
                 @endif

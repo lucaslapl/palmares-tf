@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Palmares;
 
+use App\Models\SeasonGroupRepository;
 use App\Models\SeasonsRepository;
 use App\Services\Etf2l\Etf2lApiClient;
 
@@ -16,6 +17,7 @@ final class SeasonImporter
     public function __construct(
         private readonly Etf2lApiClient $client,
         private readonly SeasonsRepository $seasons,
+        private readonly SeasonGroupRepository $seasonGroups,
     ) {}
 
     /**
@@ -40,7 +42,7 @@ final class SeasonImporter
                     continue;
                 }
 
-                $this->seasons->insertOrIgnoreCompetition($competition);
+                $this->seasons->insertOrIgnoreCompetition($competition, $this->seasonGroups);
                 $imported++;
 
                 if ($progress !== null) {

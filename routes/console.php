@@ -45,6 +45,8 @@ $log = storage_path('logs/schedule.log');
 
 Schedule::command('app:sync-seasons')->daily()->withoutOverlapping()->appendOutputTo($log);
 
+Schedule::command('app:sync-season-groups')->dailyAt('00:10')->withoutOverlapping()->appendOutputTo($log);
+
 Schedule::command('app:sync-tables')->dailyAt('00:15')->withoutOverlapping()->appendOutputTo($log);
 
 Schedule::command('app:harvest-players')->dailyAt('00:30')->withoutOverlapping()->appendOutputTo($log);

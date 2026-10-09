@@ -6,7 +6,9 @@ namespace App\Services\Palmares;
 
 use App\Models\PalmaresRepository;
 use App\Models\PlayersRepository;
+use App\Models\SeasonsRepository;
 use App\Services\Etf2l\Etf2lApiClient;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Throwable;
 
@@ -581,9 +583,69 @@ final class ComputePalmaresService
                 ? (string) $medals[$entry['placement']]
                 : null;
             unset($entry['game_mode']);
+
+            // Trouver le groupe de saison pour cette compétition
+            $seasonGroupId = $this->resolveSeasonGroupId(
+                (int) ($entry['competition_id'] ?? 0),
+                (string) ($entry['format'] ?? ''),
+                (string) ($entry['competition_name'] ?? ''),
+            );
+            $entry['season_group_id'] = $seasonGroupId;
         }
 
         return $entries;
+    }
+
+    /**
+     * Résout l'ID du groupe de saison pour une compétition.
+     *
+     * @param  int  $competitionId  ID ETF2L de la compétition
+     * @param  string  $format  Format (6s ou 9v9)
+     * @param  string  $competitionName  Nom de la compétition
+     * @return int|null ID du groupe de saison ou null
+     */
+    private function resolveSeasonGroupId(int $competitionId, string $format, string $competitionName): ?int
+    {
+        if ($competitionId <= 0) {
+            return null;
+        }
+
+        // Essayer de trouver via la table seasons
+        $seasonGroupId = DB::table('seasons')
+            ->where('etf2l_competition_id', $competitionId)
+            ->value('season_group_id');
+
+        if ($seasonGroupId !== null) {
+            return (int) $seasonGroupId;
+        }
+
+        // Sinon, essayer de déduire depuis le nom et le format
+        $seasonNumber = SeasonsRepository::extractSeasonNumber($competitionName);
+        if ($seasonNumber === null) {
+            return null;
+        }
+
+        // Vérifier si un groupe existe déjà pour ce format et numéro
+        $groupId = DB::table('season_groups')
+            ->where('format', $format)
+            ->where('season_number', $seasonNumber)
+            ->value('id');
+
+        if ($groupId !== null) {
+            return (int) $groupId;
+        }
+
+        // Créer un nouveau groupe (lazy creation)
+        $name = SeasonsRepository::seasonGroupName($format, $seasonNumber);
+        $groupId = DB::table('season_groups')->insertGetId([
+            'format' => $format,
+            'season_number' => $seasonNumber,
+            'name' => $name,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return (int) $groupId;
     }
 
     /**
@@ -702,11 +764,28 @@ final class ComputePalmaresService
     }
 
     /**
-     * Clé de saison normalisée pour détecter les doublons
-     * ("6v6 Season 50 (Autumn 2025)" et "...: Division 3 Playoffs").
+     * Clé de saison normalisée pour détecter les doublons.
+     * Utilise maintenant le numéro de saison pour regrouper toutes les divisions
+     * d'une même saison (ex: "6v6 Season 52 Division 1" et "6v6 Season 52 Division 2"
+     * auront la même clé "6s-52").
+     *
+     * @param  string  $gameMode  Format de jeu (6s ou 9v9)
+     * @param  string  $competitionName  Nom de la compétition
      */
     public static function seasonKey(string $gameMode, string $competitionName): string
     {
+        // Extraire le numéro de saison du nom
+        $seasonNumber = null;
+        if (preg_match('/Season\s+(\d+)/i', $competitionName, $matches) === 1) {
+            $seasonNumber = (int) $matches[1];
+        }
+
+        // Si on trouve un numéro de saison, utiliser le format + numéro comme clé
+        if ($seasonNumber !== null) {
+            return $gameMode.'-'.$seasonNumber;
+        }
+
+        // Sinon, tomber en arrière sur l'ancienne méthode (pour les Nations Cup, etc.)
         $name = preg_replace('/\s*\([^)]*\)/u', '', $competitionName) ?? $competitionName;
         $name = preg_replace('/\s*:.*$/u', '', $name) ?? $name;
         $name = trim($name);
