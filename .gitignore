@@ -19,6 +19,7 @@
 /public/hot
 /public/storage
 /database/database.sqlite
+/database/reference
 /storage/*.key
 /storage/pail
 /storage/app/palmares
