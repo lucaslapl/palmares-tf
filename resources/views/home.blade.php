@@ -14,7 +14,7 @@
         <button type="submit">Search</button>
     </form>
     <p class="hero-meta">
-        {{ number_format($playerTotal) }} ranked players across {{ number_format($seasonsCount) }} seasons.
+        {{ number_format($playerTotal) }} medal winners across {{ number_format($seasonsCount) }} seasons.
     </p>
 </div>
 

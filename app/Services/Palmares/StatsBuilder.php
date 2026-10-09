@@ -16,11 +16,12 @@ use Throwable;
  * sous verrou de fichier, régénération à la lecture si absent/obsolète
  * ("self-healing").
  *
- * Les séries temporelles regroupent le palmarès par « saison logique »
- * (même normalisation que ComputePalmaresService::seasonKey) : les
- * compétitions divisionnées ("Season 52 : Division 2") sont rattachées à
- * leur saison, les sous-compétitions satellites (playoffs isolés,
- * qualifications, signups) sont exclues.
+ * Les séries temporelles regroupent les participations (joueurs ayant joué
+ * au moins un match, médaille ou pas) par « saison logique » (même
+ * normalisation que ComputePalmaresService::seasonKey) : les compétitions
+ * divisionnées ("Season 52 : Division 2") sont rattachées à leur saison,
+ * les sous-compétitions satellites (playoffs isolés, qualifications,
+ * signups) sont exclues.
  */
 final class StatsBuilder
 {
@@ -237,11 +238,17 @@ final class StatsBuilder
             ];
         }
 
-        // Joueurs distincts vus en ligue, pour le résumé de page.
-        $leaguePlayersSeen = [];
-        foreach ($leaguePlayers as $key => $meta) {
+        // Joueurs distincts ayant participé (ligue et compétitions hors ligue),
+        // pour le résumé de page : l'activité réelle, pas seulement les médaillés.
+        $playersSeen = [];
+        foreach ($leaguePlayers as $meta) {
             foreach (array_keys($meta['players']) as $playerId) {
-                $leaguePlayersSeen[(int) $playerId] = true;
+                $playersSeen[(int) $playerId] = true;
+            }
+        }
+        foreach ($otherCompetitions as $meta) {
+            foreach (array_keys($meta['players']) as $playerId) {
+                $playersSeen[(int) $playerId] = true;
             }
         }
 
@@ -250,7 +257,7 @@ final class StatsBuilder
             'formats' => (array) config('palmares.formats'),
             'seasons' => $seasons,
             'years' => $yearEntries,
-            'totals' => $this->totals($seasons, $otherCompetitions, $leaguePlayersSeen),
+            'totals' => $this->totals($seasons, $otherCompetitions, $playersSeen),
         ];
     }
 
@@ -259,10 +266,10 @@ final class StatsBuilder
      *
      * @param  array<string, array<int, array<string, mixed>>>&array<string, mixed>  $seasons
      * @param  array<string, array{name: string, format: string, players: array<int, true>, end_time: int}>  $otherCompetitions
-     * @param  array<int, true>  $leaguePlayersSeen
+     * @param  array<int, true>  $playersSeen
      * @return array<string, int>
      */
-    private function totals(array $seasons, array $otherCompetitions, array $leaguePlayersSeen): array
+    private function totals(array $seasons, array $otherCompetitions, array $playersSeen): array
     {
         $teams = 0;
         foreach (['6s', '9v9'] as $format) {
@@ -274,7 +281,8 @@ final class StatsBuilder
         return [
             'league_seasons' => count($seasons['6s'] ?? []) + count($seasons['9v9'] ?? []),
             'other_competitions' => count($otherCompetitions),
-            'players' => count($leaguePlayersSeen),
+            'players' => count($playersSeen),
+            'medal_players' => $this->stats->medalPlayersCount(),
             'team_slots' => $teams,
         ];
     }

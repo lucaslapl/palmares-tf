@@ -30,6 +30,7 @@ final class StatsBuilderTest extends TestCase
             ['etf2l_id' => 1, 'name' => 'Alpha'],
             ['etf2l_id' => 2, 'name' => 'Beta'],
             ['etf2l_id' => 3, 'name' => 'Gamma'],
+            ['etf2l_id' => 4, 'name' => 'Delta'],
         ]);
 
         // Saison 6v6 10 découpée en deux divisions + playoffs satellites,
@@ -55,15 +56,27 @@ final class StatsBuilderTest extends TestCase
             ['season_id' => 2, 'team_id' => 5, 'division_name' => 'Division 2', 'ach' => null, 'medal' => null],
         ]);
 
-        // Palmarès : les playoffs satellites (saison 3) reforcent la même
-        // saison logique ; la Nations Cup (season_id NULL) est hors ligue.
+        // Palmarès (exploits) : utilisé pour le résumé « médaillés ». Alpha,
+        // Beta et Gamma ont une médaille ; Delta (activité sans exploit) non.
         DB::table('palmares')->insert([
             ['player_id' => 1, 'season_id' => 1, 'competition_id' => 100, 'format' => '6s', 'competition_name' => 'Season 10 (Autumn 2010): Division 1', 'placement' => 1, 'medal' => 'gold', 'playoff_round' => null, 'season_time' => 1289043200],
-            ['player_id' => 2, 'season_id' => 3, 'competition_id' => 102, 'format' => '6s', 'competition_name' => 'Season 10 (Autumn 2010): Division 1 Playoffs', 'placement' => null, 'medal' => null, 'playoff_round' => 'Quarter-final', 'season_time' => 1290000000],
             ['player_id' => 1, 'season_id' => 4, 'competition_id' => 103, 'format' => '6s', 'competition_name' => 'Season 11 (Spring 2011)', 'placement' => 1, 'medal' => 'gold', 'playoff_round' => null, 'season_time' => 1302000000],
             ['player_id' => 2, 'season_id' => 4, 'competition_id' => 103, 'format' => '6s', 'competition_name' => 'Season 11 (Spring 2011)', 'placement' => 2, 'medal' => 'silver', 'playoff_round' => null, 'season_time' => 1302000000],
             ['player_id' => 3, 'season_id' => 5, 'competition_id' => 104, 'format' => '9v9', 'competition_name' => 'Highlander Season 2 (Autumn 2011)', 'placement' => 1, 'medal' => 'gold', 'playoff_round' => null, 'season_time' => 1317000000],
-            ['player_id' => 3, 'season_id' => null, 'competition_id' => 200, 'format' => '9v9', 'competition_name' => 'Nations Cup #1', 'placement' => null, 'medal' => null, 'playoff_round' => 'Final', 'season_time' => 1318000000],
+        ]);
+
+        // Participations (activité) : tous les joueurs ayant joué un match,
+        // médaille ou pas. Les playoffs satellites (saison 3) reforcent la
+        // même saison logique ; Delta n'a aucun exploit mais a joué ; la
+        // Nations Cup (season_id NULL) est hors ligue.
+        DB::table('participations')->insert([
+            ['player_id' => 1, 'season_id' => 1, 'competition_id' => 100, 'format' => '6s', 'competition_name' => 'Season 10 (Autumn 2010): Division 1', 'season_time' => 1289043200],
+            ['player_id' => 2, 'season_id' => 3, 'competition_id' => 102, 'format' => '6s', 'competition_name' => 'Season 10 (Autumn 2010): Division 1 Playoffs', 'season_time' => 1290000000],
+            ['player_id' => 4, 'season_id' => 2, 'competition_id' => 101, 'format' => '6s', 'competition_name' => 'Season 10 (Autumn 2010): Division 2', 'season_time' => 1289050000],
+            ['player_id' => 1, 'season_id' => 4, 'competition_id' => 103, 'format' => '6s', 'competition_name' => 'Season 11 (Spring 2011)', 'season_time' => 1302000000],
+            ['player_id' => 2, 'season_id' => 4, 'competition_id' => 103, 'format' => '6s', 'competition_name' => 'Season 11 (Spring 2011)', 'season_time' => 1302000000],
+            ['player_id' => 3, 'season_id' => 5, 'competition_id' => 104, 'format' => '9v9', 'competition_name' => 'Highlander Season 2 (Autumn 2011)', 'season_time' => 1317000000],
+            ['player_id' => 3, 'season_id' => null, 'competition_id' => 200, 'format' => '9v9', 'competition_name' => 'Nations Cup #1', 'season_time' => 1318000000],
         ]);
     }
 
@@ -75,11 +88,12 @@ final class StatsBuilderTest extends TestCase
         $seasons6 = $payload['seasons']['6s'];
         $this->assertCount(2, $seasons6);
 
-        // Season 10 : deux joueurs (playoffs inclus), 5 équipes sur les deux
-        // divisions, fin datée par le match le plus récent.
+        // Season 10 : trois joueurs ayant joué (division 1, playoffs satellites
+        // et division 2 — Delta n'a aucune médaille mais a joué), 5 équipes sur
+        // les deux divisions, fin datée par le match le plus récent.
         $this->assertSame('Season 10', $seasons6[0]['name']);
         $this->assertSame(2010, $seasons6[0]['year']);
-        $this->assertSame(2, $seasons6[0]['players']);
+        $this->assertSame(3, $seasons6[0]['players']);
         $this->assertSame(5, $seasons6[0]['teams']);
         $this->assertSame(2, $seasons6[0]['divisions']);
         $this->assertSame(1290000000, $seasons6[0]['end_time']);
@@ -95,8 +109,8 @@ final class StatsBuilderTest extends TestCase
 
         [$season10, $season11] = $payload['seasons']['6s'];
 
-        // Saison 10 : Alpha et Beta sont tous deux nouveaux.
-        $this->assertSame(2, $season10['new_players']);
+        // Saison 10 : Alpha, Beta et Delta sont tous trois nouveaux.
+        $this->assertSame(3, $season10['new_players']);
         $this->assertSame(0, $season10['returning_players']);
 
         // Saison 11 : les deux reviennent.
@@ -118,6 +132,20 @@ final class StatsBuilderTest extends TestCase
         $this->assertSame(1, $payload['years'][1]['seasons_6s']);
         $this->assertSame(1, $payload['years'][1]['seasons_9v9']);
         $this->assertSame(1, $payload['years'][1]['other']);
+    }
+
+    #[Test]
+    public function totals_count_all_participants_and_medal_winners(): void
+    {
+        $payload = (new StatsBuilder(new StatsRepository))->rebuild();
+
+        // Quatre joueurs ont joué (ligue + Nations Cup) ; seuls Alpha, Beta
+        // et Gamma ont une médaille : « participants » ≠ « médaillés ».
+        $this->assertSame(4, $payload['totals']['players']);
+        $this->assertSame(3, $payload['totals']['medal_players']);
+        $this->assertSame(3, $payload['totals']['league_seasons']);
+        $this->assertSame(1, $payload['totals']['other_competitions']);
+        $this->assertSame(5, $payload['totals']['team_slots']);
     }
 
     #[Test]

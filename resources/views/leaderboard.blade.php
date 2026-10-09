@@ -12,7 +12,7 @@
     @endforeach
 </div>
 
-<p class="muted">{{ number_format($total) }} ranked players</p>
+<p class="muted">{{ number_format($total) }} medal winners</p>
 
 <table class="table">
     <thead>

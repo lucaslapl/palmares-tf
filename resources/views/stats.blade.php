@@ -6,8 +6,10 @@
 <h1 class="page-title">Community stats</h1>
 <p class="muted stats-intro">
     ETF2L competitive activity since the beginning: league seasons, teams and players
-    over time. Player counts include everyone with a recorded podium or playoff run;
-    team counts reflect every team listed in the final division tables.
+    over time. Player counts include everyone who played at least one match in a league
+    season or a Nations Cup; team counts reflect every team listed in the final division
+    tables. Match data for seasons before the ETF2L site relaunch (late 2015) may be
+    incomplete: early player counts are a lower bound.
 </p>
 
 @php
@@ -29,7 +31,11 @@
     </div>
     <div class="stats-total">
         <span class="stats-total-value">{{ number_format((int) ($stats['totals']['players'] ?? 0)) }}</span>
-        <span class="stats-total-label">Ranked players</span>
+        <span class="stats-total-label">Players who played</span>
+    </div>
+    <div class="stats-total">
+        <span class="stats-total-value">{{ number_format((int) ($stats['totals']['medal_players'] ?? 0)) }}</span>
+        <span class="stats-total-label">Medal winners</span>
     </div>
     <div class="stats-total">
         <span class="stats-total-value">{{ number_format((int) ($stats['totals']['team_slots'] ?? 0)) }}</span>
@@ -63,7 +69,7 @@
 <section class="panel">
     <div class="panel-head">
         <h2>Players per season</h2>
-        <span class="muted">Players with a recorded podium or playoff run</span>
+        <span class="muted">Players who played at least one match</span>
     </div>
     <div class="stats-chart-wrap"><canvas id="chart-players" height="260"></canvas></div>
 </section>

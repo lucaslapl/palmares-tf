@@ -43,6 +43,10 @@ final class StatsPageTest extends TestCase
             'competition_name' => 'Season 10 (Autumn 2010)', 'placement' => 1,
             'medal' => 'gold', 'season_time' => 1289043200,
         ]);
+        DB::table('participations')->insert([
+            'player_id' => 1, 'season_id' => 1, 'competition_id' => 100, 'format' => '6s',
+            'competition_name' => 'Season 10 (Autumn 2010)', 'season_time' => 1289043200,
+        ]);
 
         (new StatsBuilder(new StatsRepository))->rebuild();
 
@@ -50,6 +54,8 @@ final class StatsPageTest extends TestCase
             ->assertOk()
             ->assertSee('Community stats')
             ->assertSee('chart-years')
+            ->assertSee('Players who played')
+            ->assertSee('Medal winners')
             ->assertSee('Season 10');
     }
 
