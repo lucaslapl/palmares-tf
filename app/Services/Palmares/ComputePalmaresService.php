@@ -598,7 +598,7 @@ final class ComputePalmaresService
 
         $grouped = [];
         foreach ($entries as $entry) {
-            $key = $this->seasonKey((string) $entry['game_mode'], (string) $entry['competition_name']);
+            $key = self::seasonKey((string) $entry['game_mode'], (string) $entry['competition_name']);
             $grouped[$key][] = $entry;
         }
 
@@ -705,7 +705,7 @@ final class ComputePalmaresService
      * Clé de saison normalisée pour détecter les doublons
      * ("6v6 Season 50 (Autumn 2025)" et "...: Division 3 Playoffs").
      */
-    private function seasonKey(string $gameMode, string $competitionName): string
+    public static function seasonKey(string $gameMode, string $competitionName): string
     {
         $name = preg_replace('/\s*\([^)]*\)/u', '', $competitionName) ?? $competitionName;
         $name = preg_replace('/\s*:.*$/u', '', $name) ?? $name;

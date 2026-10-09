@@ -36,7 +36,9 @@ Artisan::command('inspire', function () {
  *  - compute-palmares reste à 30 min : c'est lui qui absorbe le flux des
  *    joueurs qui dépassent la fenêtre de staleness (7 j), et sansOverlapping(180)
  *    couvre les passes longues ;
- *  - generate-json à 6 h suit les écritures base des autres tâches.
+ *  - generate-json à 6 h suit les écritures base des autres tâches ;
+ *  - compute-stats (toutes les 6 h) régénère les stats communautaires,
+ *    elles changent aussi lentement que les JSON publics.
  */
 
 $log = storage_path('logs/schedule.log');
@@ -50,3 +52,5 @@ Schedule::command('app:harvest-players')->dailyAt('00:30')->withoutOverlapping()
 Schedule::command('app:compute-palmares')->everyThirtyMinutes()->withoutOverlapping(180)->appendOutputTo($log);
 
 Schedule::command('app:generate-json')->everySixHours()->withoutOverlapping()->appendOutputTo($log);
+
+Schedule::command('app:compute-stats')->everySixHours()->withoutOverlapping()->appendOutputTo($log);

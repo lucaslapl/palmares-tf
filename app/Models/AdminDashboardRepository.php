@@ -18,8 +18,8 @@ use RecursiveIteratorIterator;
  */
 final class AdminDashboardRepository
 {
-    /** JSON publics surveillés (voir LeaderboardBuilder). */
-    private const JSON_FILES = ['leaderboard.json', 'leaderboard-6s.json', 'leaderboard-9v9.json', 'players-index.json'];
+    /** JSON publics surveillés (voir LeaderboardBuilder et StatsBuilder). */
+    private const JSON_FILES = ['leaderboard.json', 'leaderboard-6s.json', 'leaderboard-9v9.json', 'players-index.json', 'stats.json'];
 
     /** Seuil de fraîcheur des JSON (3 h entre deux app:generate-json + marge). */
     private const JSON_MAX_AGE_S = 4 * 3600;
@@ -78,6 +78,7 @@ final class AdminDashboardRepository
             ['command' => 'app:harvest-players', 'interval_s' => 6 * 3600],
             ['command' => 'app:compute-palmares', 'interval_s' => 30 * 60],
             ['command' => 'app:generate-json', 'interval_s' => 3 * 3600],
+            ['command' => 'app:compute-stats', 'interval_s' => 6 * 3600],
         ];
 
         $rows = [];

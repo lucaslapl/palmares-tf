@@ -10,6 +10,7 @@ use App\Http\Controllers\LeaderboardController;
 use App\Http\Controllers\PlayerController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SeasonController;
+use App\Http\Controllers\StatsController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -23,6 +24,8 @@ Route::get('/players/{id}', [PlayerController::class, 'show'])->name('player.sho
 
 Route::get('/seasons', [SeasonController::class, 'index'])->name('seasons.index');
 Route::get('/seasons/{season}', [SeasonController::class, 'show'])->name('seasons.show')->where('season', '[0-9]+');
+
+Route::get('/stats', [StatsController::class, 'index'])->name('stats.index');
 
 /*
 |--------------------------------------------------------------------------

@@ -83,7 +83,7 @@ final class PipelineStatusCommand extends Command
 
     private function renderJsonFiles(): void
     {
-        $files = ['leaderboard.json', 'leaderboard-6s.json', 'leaderboard-9v9.json', 'players-index.json'];
+        $files = ['leaderboard.json', 'leaderboard-6s.json', 'leaderboard-9v9.json', 'players-index.json', 'stats.json'];
         $rows = [];
 
         foreach ($files as $file) {

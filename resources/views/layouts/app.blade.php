@@ -15,6 +15,7 @@
             <nav class="nav-links">
                 <a href="{{ route('leaderboard') }}">Leaderboard</a>
                 <a href="{{ route('seasons.index') }}">Seasons</a>
+                <a href="{{ route('stats.index') }}">Stats</a>
                 <a href="{{ route('search') }}">Search</a>
             </nav>
         </div>
