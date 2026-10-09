@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Models\PalmaresRepository;
+use App\Models\ParticipationsRepository;
 use App\Models\PlayersRepository;
 use App\Services\Etf2l\Etf2lApiClient;
 use App\Services\Palmares\ComputePalmaresService;
@@ -56,6 +57,46 @@ final class ComputePalmaresServiceTest extends TestCase
         // Stockage + joueur marqué calculé.
         $this->assertDatabaseHas('palmares', ['medal' => 'gold', 'placement' => 1]);
         $this->assertNotNull((new PlayersRepository)->findByEtf2lId(self::PLAYER)->computed_at);
+
+        // La participation (tout joueur ayant joué, sans condition d'exploit)
+        // est enregistrée en parallèle du palmarès.
+        $this->assertDatabaseHas('participations', [
+            'player_id' => 1,
+            'competition_id' => 971,
+            'format' => '6s',
+            'team_name' => 'Witness Gaming',
+            'season_time' => 1700000003,
+        ]);
+    }
+
+    #[Test]
+    public function stores_participation_without_achievement(): void
+    {
+        // Un match dans une saison sans podium ni playoffs détectable :
+        // aucune entrée de palmarès, mais une participation (le joueur a joué).
+        $results = [
+            'current_page' => 1,
+            'data' => [$this->match(972, '6v6 Season 51 (Winter 2026)', '', 2, 2, 1700000500)],
+            'last_page' => 1,
+            'total' => 1,
+        ];
+
+        Http::fake([
+            '*/player/'.self::PLAYER.'/results*' => Http::response($results),
+            '*/player/'.self::PLAYER => Http::response($this->profileResponse()),
+            '*/competition/*' => Http::response(['tables' => []]),
+        ]);
+
+        $entries = $this->service()->computeForPlayer(self::PLAYER);
+
+        $this->assertSame([], $entries);
+        $this->assertDatabaseMissing('palmares', ['player_id' => 1]);
+        $this->assertDatabaseHas('participations', [
+            'player_id' => 1,
+            'competition_id' => 972,
+            'format' => '6s',
+            'season_time' => 1700000500,
+        ]);
     }
 
     #[Test]
@@ -108,6 +149,7 @@ final class ComputePalmaresServiceTest extends TestCase
 
         $this->assertSame([], $entries);
         $this->assertDatabaseMissing('palmares', ['player_id' => 1]);
+        $this->assertDatabaseMissing('participations', ['player_id' => 1]);
         $this->assertNotNull((new PlayersRepository)->findByEtf2lId(self::PLAYER)->computed_at);
     }
 
@@ -153,6 +195,7 @@ final class ComputePalmaresServiceTest extends TestCase
             new Etf2lApiClient('https://api.example.test', 'palmares-test', 0.0, 5),
             new PlayersRepository,
             new PalmaresRepository,
+            new ParticipationsRepository,
         );
     }
 

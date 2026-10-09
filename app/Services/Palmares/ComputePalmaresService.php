@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Palmares;
 
 use App\Models\PalmaresRepository;
+use App\Models\ParticipationsRepository;
 use App\Models\PlayersRepository;
 use App\Models\SeasonsRepository;
 use App\Services\Etf2l\Etf2lApiClient;
@@ -24,6 +25,11 @@ use Throwable;
  * Seules les compétitions avec un résultat positif sont retenues : podium
  * (or/argent/bronze) ou participation à un round de playoffs. Les Nations Cup
  * ne comptent qu'à partir du podium (déduit des finales).
+ *
+ * En parallèle, une participation est enregistrée pour chaque compétition de
+ * ligue ou de Nations Cup où le joueur a joué au moins un match (table
+ * participations) : sans condition d'exploit, c'est la base des stats
+ * d'activité sur tous les joueurs.
  */
 final class ComputePalmaresService
 {
@@ -68,6 +74,7 @@ final class ComputePalmaresService
         private readonly Etf2lApiClient $client,
         private readonly PlayersRepository $players,
         private readonly PalmaresRepository $palmares,
+        private readonly ParticipationsRepository $participations,
     ) {}
 
     // ---------------------------------------------------------------
@@ -104,8 +111,10 @@ final class ComputePalmaresService
             }
         }
 
-        $entries = $this->computeEntries($etf2lPlayerId);
+        // Entrées du palmares (exploits) et participations (activité).
+        ['entries' => $entries, 'participations' => $participations] = $this->computeEntries($etf2lPlayerId);
         $this->palmares->replaceForPlayer((int) $player->id, $entries);
+        $this->participations->replaceForPlayer((int) $player->id, $participations);
         $this->players->markComputed((int) $player->id);
 
         return $entries;
@@ -469,13 +478,13 @@ final class ComputePalmaresService
     // ---------------------------------------------------------------
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return array{entries: array<int, array<string, mixed>>, participations: array<int, array<string, mixed>>}
      */
     private function computeEntries(int $playerId): array
     {
         $results = $this->fetchResults($playerId);
         if ($results === []) {
-            return [];
+            return ['entries' => [], 'participations' => []];
         }
 
         // 1. Regrouper par compétition.
@@ -498,7 +507,7 @@ final class ComputePalmaresService
         }
 
         if ($byCompetition === []) {
-            return [];
+            return ['entries' => [], 'participations' => []];
         }
 
         // 2. Équipe représentative par compétition.
@@ -507,11 +516,37 @@ final class ComputePalmaresService
         }
         unset($comp);
 
-        // 3. Placement + playoffs par compétition.
+        // 3. Placement + playoffs par compétition, et participation systématique.
         $entries = [];
+        $participations = [];
 
         foreach ($byCompetition as $compId => $comp) {
             $info = $comp['info'];
+
+            // Timestamp max des matches (tri chronologique).
+            $seasonTime = 0;
+            foreach ($comp['matches'] as $match) {
+                $t = (int) ($match['time'] ?? 0);
+                if ($t > $seasonTime) {
+                    $seasonTime = $t;
+                }
+            }
+
+            // Participation : tout joueur ayant joué un match ici est
+            // enregistré, sans condition d'exploit. Les compétitions
+            // d'inscription (signups) n'ont pas de matchs joués réels.
+            if (stripos((string) $info['competition_name'], 'signup') === false) {
+                $participations[] = [
+                    'competition_id' => $compId,
+                    'format' => $info['game_mode'],
+                    'competition_name' => $info['competition_name'],
+                    'team_name' => $info['team_name'],
+                    'team_id' => (int) $info['team_id'],
+                    'division_name' => $info['division_name'],
+                    'season_time' => $seasonTime,
+                ];
+            }
+
             $placement = $this->resolvePlacement($compId, (int) $info['team_id']);
             [$playoffRound, $wonPlayoff] = $this->bestPlayoffRound($comp['matches']);
 
@@ -542,15 +577,6 @@ final class ComputePalmaresService
                 }
             }
 
-            // Timestamp max des matches (tri chronologique).
-            $seasonTime = 0;
-            foreach ($comp['matches'] as $match) {
-                $t = (int) ($match['time'] ?? 0);
-                if ($t > $seasonTime) {
-                    $seasonTime = $t;
-                }
-            }
-
             $entries[] = [
                 'competition_id' => $compId,
                 'game_mode' => $info['game_mode'],
@@ -566,7 +592,10 @@ final class ComputePalmaresService
         }
 
         // 4. Dédupliquer par saison logique, 5. décorer.
-        return $this->decorateEntries($this->deduplicateBySeason($entries));
+        return [
+            'entries' => $this->decorateEntries($this->deduplicateBySeason($entries)),
+            'participations' => $participations,
+        ];
     }
 
     /**
