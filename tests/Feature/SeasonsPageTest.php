@@ -30,12 +30,12 @@ final class SeasonsPageTest extends TestCase
         return $seasonId;
     }
 
-    private function insertSeasonGroup(int $seasonNumber, string $format = '6s'): int
+    private function insertSeasonGroup(int $seasonNumber, string $format = '6s', ?string $name = null): int
     {
         return (int) DB::table('season_groups')->insertGetId([
             'format' => $format,
             'season_number' => $seasonNumber,
-            'name' => SeasonsRepository::seasonGroupName($format, $seasonNumber),
+            'name' => $name ?? SeasonsRepository::seasonGroupName($format, $seasonNumber),
             'min_competition_id' => 0,
             'max_competition_id' => 0,
             'created_at' => now(),
@@ -228,5 +228,40 @@ final class SeasonsPageTest extends TestCase
             ->assertSee('Team Premiership', false)
             ->assertSee('Team Division 2', false)
             ->assertSee('Includes 2 divisions', false);
+    }
+
+    #[Test]
+    public function index_sorts_seasons_by_date_not_by_number(): void
+    {
+        // « ETF2L AFS Season 2010 » est une compétition de 2010 (id ETF2L 54)
+        // dont le numéro extrait (2010) ne doit pas la faire remonter en tête :
+        // l'ordre suit les ids de compétition, chronologiques.
+        $oldGroup = $this->insertSeasonGroup(2010, '6s', 'ETF2L AFS Season 2010');
+        $this->insertSeason(54, 'ETF2L AFS Season 2010', true, $oldGroup);
+
+        $newGroup = $this->insertSeasonGroup(50, '6s');
+        $this->insertSeason(971, '6v6 Season 50 (Autumn 2025)', true, $newGroup);
+
+        $this->get(route('seasons.index'))
+            ->assertOk()
+            ->assertSeeInOrder(['6v6 Season 50', 'ETF2L AFS Season 2010'], false);
+    }
+
+    #[Test]
+    public function home_counts_unified_seasons_not_divisions(): void
+    {
+        // Une saison unifiée (Season 52) avec trois divisions + une saison
+        // ancienne : la home doit compter 2 saisons, pas 4 compétitions.
+        $group52 = $this->insertSeasonGroup(52, '6s');
+        $this->insertSeason(1040, '6v6 Season 52 (Summer 2026): Division 1', true, $group52);
+        $this->insertSeason(1041, '6v6 Season 52 (Summer 2026): Division 2', true, $group52);
+        $this->insertSeason(1042, '6v6 Season 52 (Summer 2026): Division 3', true, $group52);
+
+        $group2010 = $this->insertSeasonGroup(2010, '6s', 'ETF2L AFS Season 2010');
+        $this->insertSeason(54, 'ETF2L AFS Season 2010', true, $group2010);
+
+        $this->get('/')
+            ->assertOk()
+            ->assertSee('across 2 seasons', false);
     }
 }

@@ -93,6 +93,45 @@ final class SeasonImporterTest extends TestCase
     }
 
     #[Test]
+    public function year_named_seasons_keep_their_competition_name(): void
+    {
+        // « ETF2L AFS Season 2010 » est une saison de 2010 nommée par année :
+        // le groupe garde ce nom au lieu du libellé générique « 6v6 Season 2010 ».
+        (new SeasonsRepository)->insertOrIgnoreCompetition([
+            'id' => 54,
+            'name' => 'ETF2L AFS Season 2010',
+            'category' => '6v6 Season',
+            'type' => '6v6',
+            'archived' => true,
+        ], new SeasonGroupRepository);
+
+        $group = DB::table('season_groups')
+            ->where('format', '6s')
+            ->where('season_number', 2010)
+            ->first();
+
+        $this->assertNotNull($group);
+        $this->assertSame('ETF2L AFS Season 2010', $group->name);
+
+        // Un groupe année déjà créé avec le libellé générique est réparé
+        // au prochain rattachement.
+        DB::table('season_groups')->where('id', $group->id)->update(['name' => '6v6 Season 2010']);
+
+        (new SeasonsRepository)->insertOrIgnoreCompetition([
+            'id' => 55,
+            'name' => 'ETF2L AFS Season 2010: Division 2',
+            'category' => '6v6 Season',
+            'type' => '6v6',
+            'archived' => true,
+        ], new SeasonGroupRepository);
+
+        $this->assertSame(
+            'ETF2L AFS Season 2010',
+            DB::table('season_groups')->where('id', $group->id)->value('name'),
+        );
+    }
+
+    #[Test]
     public function limit_stops_import_after_the_requested_count(): void
     {
         $fixture = $this->fixture('competition_list_page1');

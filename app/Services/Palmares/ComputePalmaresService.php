@@ -635,12 +635,15 @@ final class ComputePalmaresService
             return (int) $groupId;
         }
 
-        // Créer un nouveau groupe (lazy creation)
-        $name = SeasonsRepository::seasonGroupName($format, $seasonNumber);
+        // Créer un nouveau groupe (lazy creation), avec le nom de la
+        // compétition pour les saisons anciennes nommées par année.
+        $displayName = SeasonsRepository::isYearSeason($seasonNumber)
+            ? SeasonsRepository::yearSeasonDisplayName($competitionName)
+            : SeasonsRepository::seasonGroupName($format, $seasonNumber);
         $groupId = DB::table('season_groups')->insertGetId([
             'format' => $format,
             'season_number' => $seasonNumber,
-            'name' => $name,
+            'name' => $displayName,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

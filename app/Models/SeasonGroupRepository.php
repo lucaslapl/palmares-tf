@@ -17,22 +17,35 @@ final class SeasonGroupRepository
     /**
      * Crée ou trouve un groupe de saison à partir du format et du numéro.
      *
+     * Les saisons anciennes nommées par année (« ETF2L AFS Season 2010 »)
+     * exposent le nom de leur compétition comme libellé du groupe au lieu
+     * du libellé générique « 6v6 Season 2010 ».
+     *
      * @param  string  $format  Format (6s ou 9v9)
      * @param  int  $seasonNumber  Numéro de saison
+     * @param  string|null  $displayName  Libellé du groupe à la création, ou null
      * @return int ID du groupe de saison
      */
-    public function findOrCreate(string $format, int $seasonNumber): int
+    public function findOrCreate(string $format, int $seasonNumber, ?string $displayName = null): int
     {
-        $name = SeasonsRepository::seasonGroupName($format, $seasonNumber);
-
         $group = DB::table('season_groups')
             ->where('format', $format)
             ->where('season_number', $seasonNumber)
             ->first();
 
         if ($group !== null) {
+            // Un groupe année créé avec le libellé générique (« 6v6 Season
+            // 2010 ») est réparé au nom de sa compétition dès qu'on le connaît.
+            if ($displayName !== null && $group->name !== $displayName) {
+                DB::table('season_groups')
+                    ->where('id', $group->id)
+                    ->update(['name' => $displayName, 'updated_at' => now()]);
+            }
+
             return (int) $group->id;
         }
+
+        $name = $displayName ?? SeasonsRepository::seasonGroupName($format, $seasonNumber);
 
         return (int) DB::table('season_groups')->insertGetId([
             'format' => $format,
@@ -101,15 +114,21 @@ final class SeasonGroupRepository
     }
 
     /**
-     * Liste les groupes de saisons avec leurs compétitions associées.
+     * Liste les groupes de saisons avec leurs compétitions associées,
+     * triés de la plus récente à la plus ancienne.
+     *
+     * L'ordre chronologique suit le plus grand id de compétition ETF2L du
+     * groupe : les ids ETF2L croissent dans le temps, y compris pour les
+     * saisons anciennes nommées par année (« Season 2010 ») dont le numéro
+     * de saison ne reflète pas leur époque.
      *
      * @return array<int, array{group: object, competitions: array<int, object>}>
      */
     public function listWithCompetitions(?string $format = null): array
     {
         $groups = $this->listAll($format);
-        $result = [];
 
+        $result = [];
         foreach ($groups as $group) {
             $competitions = DB::table('seasons')
                 ->where('season_group_id', $group->id)
@@ -120,10 +139,35 @@ final class SeasonGroupRepository
             $result[(int) $group->id] = [
                 'group' => $group,
                 'competitions' => $competitions,
+                'max_competition_id' => $this->maxCompetitionId($competitions),
             ];
         }
 
-        return $result;
+        uasort($result, static function (array $a, array $b): int {
+            return $b['max_competition_id'] <=> $a['max_competition_id'];
+        });
+
+        return array_map(static function (array $entry): array {
+            return ['group' => $entry['group'], 'competitions' => $entry['competitions']];
+        }, $result);
+    }
+
+    /**
+     * Plus grand id de compétition ETF2L d'un lot de compétitions (0 si vide).
+     *
+     * @param  array<int, object>  $competitions
+     */
+    private function maxCompetitionId(array $competitions): int
+    {
+        $max = 0;
+        foreach ($competitions as $competition) {
+            $id = (int) $competition->etf2l_competition_id;
+            if ($id > $max) {
+                $max = $id;
+            }
+        }
+
+        return $max;
     }
 
     /**

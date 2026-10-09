@@ -99,6 +99,30 @@ final class SeasonsRepository
     }
 
     /**
+     * Un « numéro » de saison au format année (ex. « ETF2L AFS Season 2010 »)
+     * n'est pas un numéro de saison classique : ces compétitions anciennes
+     * gardent leur nom d'origine comme libellé de groupe.
+     */
+    public static function isYearSeason(int $number): bool
+    {
+        return $number >= 1900;
+    }
+
+    /**
+     * Nom d'affichage d'une saison nommée par année : le nom de la
+     * compétition sans le suffixe de division (« : Division 2 ») ni la
+     * mention de saison entre parenthèses.
+     * Ex: "ETF2L AFS Season 2010: Division 2" -> "ETF2L AFS Season 2010".
+     */
+    public static function yearSeasonDisplayName(string $competitionName): string
+    {
+        $name = preg_replace('/\s*\([^)]*\)/u', '', $competitionName) ?? $competitionName;
+        $name = preg_replace('/\s*:.*$/u', '', $name) ?? $name;
+
+        return trim($name);
+    }
+
+    /**
      * Ajoute une compétition si elle n'existe pas déjà (par id ETF2L) et
      * l'associe à son groupe de saison unifié (une saison logique regroupe
      * toutes les divisions : « 6v6 Season 52 Division 1 », « ... Division 2 »).
@@ -120,7 +144,11 @@ final class SeasonsRepository
         $groupId = null;
 
         if ($seasonNumber !== null && $seasonGroups !== null) {
-            $groupId = $seasonGroups->findOrCreate($format, $seasonNumber);
+            // Les saisons nommées par année gardent leur nom d'origine.
+            $displayName = self::isYearSeason($seasonNumber)
+                ? self::yearSeasonDisplayName($name)
+                : null;
+            $groupId = $seasonGroups->findOrCreate($format, $seasonNumber, $displayName);
             $seasonGroups->updateCompetitionRange($groupId, $etf2lId);
         }
 

@@ -69,8 +69,12 @@ final class SyncSeasonGroupsCommand extends Command
                 continue;
             }
 
-            // Créer ou trouver le groupe
-            $groupId = $seasonGroups->findOrCreate($format, $seasonNumber);
+            // Créer ou trouver le groupe (les saisons nommées par année
+            // gardent leur nom d'origine comme libellé).
+            $displayName = SeasonsRepository::isYearSeason($seasonNumber)
+                ? SeasonsRepository::yearSeasonDisplayName($name)
+                : null;
+            $groupId = $seasonGroups->findOrCreate($format, $seasonNumber, $displayName);
             $seasonGroups->updateCompetitionRange($groupId, $etf2lId);
 
             // Associer la saison au groupe
